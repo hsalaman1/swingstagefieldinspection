@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Swing Stage Field Inspection App</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{--primary:#1a5276;--primary-light:#2980b9;--accent:#e67e22;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;--bg:#f4f6f9;--card:#fff;--text:#2c3e50;--border:#dce1e8;--radius:10px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -86,12 +87,89 @@ textarea{resize:vertical;min-height:70px}
 .def-photo-badge{position:absolute;top:4px;right:4px;background:var(--primary);color:#fff;font-size:.65rem;padding:2px 6px;border-radius:10px}
 .stroke-size{width:50px;height:30px;padding:2px 6px;border:1px solid #ccc;border-radius:4px;font-size:.8rem;margin:0}
 .toolbar-divider{width:1px;height:28px;background:#ccc;margin:0 4px}
+
+/* ===== DARK MODE ===== */
+body.dark-mode{--primary:#2980b9;--primary-light:#3498db;--accent:#e67e22;--success:#2ecc71;--danger:#e74c3c;--warning:#f1c40f;--bg:#1a1a2e;--card:#16213e;--text:#e0e0e0;--border:#2a2a4a}
+body.dark-mode .app-header{background:linear-gradient(135deg,#0f3460,#16213e)}
+body.dark-mode .tab-bar{background:#16213e;border-color:#2a2a4a}
+body.dark-mode .tab{color:#8899aa}
+body.dark-mode .tab.active{color:#3498db;border-bottom-color:#3498db;background:#1a1a2e}
+body.dark-mode .tab:hover{background:#1a1a2e}
+body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:#1a1a2e;color:#e0e0e0;border-color:#2a2a4a}
+body.dark-mode .stat-card{background:linear-gradient(135deg,#16213e,#1a1a2e);border-color:#2a2a4a}
+body.dark-mode .checklist-item{border-color:#2a2a4a}
+body.dark-mode .inspector-info{background:#1a1a2e}
+body.dark-mode .export-section{background:linear-gradient(135deg,#0f3460,#16213e)}
+body.dark-mode .markup-toolbar{background:#1a1a2e}
+
+/* ===== HEADER CONTROLS ===== */
+.header-controls{display:flex;align-items:center;gap:8px;margin-top:6px}
+.header-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:4px}
+.header-btn:hover{background:rgba(255,255,255,.25)}
+.header-btn.active{background:rgba(255,255,255,.3);border-color:rgba(255,255,255,.5)}
+
+/* ===== PROGRESS BAR (HEADER) ===== */
+.inspection-progress{flex:1;max-width:200px}
+.inspection-progress .prog-label{font-size:.65rem;opacity:.8;margin-bottom:2px}
+.inspection-progress .prog-bar{height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden}
+.inspection-progress .prog-fill{height:100%;background:#2ecc71;border-radius:3px;transition:width .4s ease}
+
+/* ===== SIGNATURE PAD ===== */
+.sig-pad-wrap{border:2px solid var(--border);border-radius:8px;background:#fff;position:relative;touch-action:none}
+body.dark-mode .sig-pad-wrap{background:#1a1a2e}
+.sig-pad-wrap canvas{display:block;width:100%;cursor:crosshair}
+.sig-actions{display:flex;gap:6px;margin-top:6px}
+
+/* ===== VOICE BUTTON ===== */
+.voice-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:1rem;transition:all .2s;flex-shrink:0;margin-bottom:10px}
+.voice-btn:hover{border-color:var(--primary-light);background:#eaf2f8}
+.voice-btn.recording{background:#e74c3c;border-color:#c0392b;color:#fff;animation:pulse-rec 1s infinite}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.6}}
+.input-with-voice{display:flex;align-items:flex-end;gap:6px}
+.input-with-voice textarea,.input-with-voice input{flex:1;margin-bottom:10px}
+
+/* ===== BATCH FLOORS ===== */
+.batch-floor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;margin:6px 0 10px}
+.batch-floor-item{display:flex;align-items:center;gap:4px;font-size:.8rem;padding:4px 6px;border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all .15s}
+.batch-floor-item:hover{border-color:var(--primary-light)}
+.batch-floor-item input{width:16px;height:16px;margin:0}
+
+/* ===== SESSION TIMER ===== */
+.session-timer{font-size:.7rem;opacity:.8;display:flex;align-items:center;gap:4px}
+
+/* ===== AUTO-SAVE INDICATOR ===== */
+.save-indicator{font-size:.65rem;opacity:.7;display:flex;align-items:center;gap:4px}
+.save-dot{width:6px;height:6px;border-radius:50%;background:#2ecc71;display:inline-block}
+.save-dot.unsaved{background:#e74c3c}
+
+/* ===== PDF STYLES ===== */
+.pdf-preview{display:none;padding:40px;background:#fff;color:#000;max-width:800px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6}
+.pdf-preview h1{font-size:20px;color:#1a5276;border-bottom:3px solid #1a5276;padding-bottom:8px;margin-bottom:16px}
+.pdf-preview h2{font-size:16px;color:#1a5276;margin:20px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
+.pdf-preview table{width:100%;border-collapse:collapse;margin:8px 0}
+.pdf-preview th,.pdf-preview td{border:1px solid #ddd;padding:6px 8px;text-align:left;font-size:11px}
+.pdf-preview th{background:#1a5276;color:#fff;font-weight:600}
+.pdf-preview .severity-badge{display:inline-block;padding:1px 6px;border-radius:8px;color:#fff;font-size:10px;font-weight:700}
 </style>
 </head>
 <body>
 <div class="app-header">
-<h1>&#127959; Swing Stage Field Inspection</h1>
-<p>Building Facade Assessment Tool</p>
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+<div><h1>&#127959; Swing Stage Field Inspection</h1>
+<p>Building Facade Assessment Tool</p></div>
+<div style="text-align:right">
+<div class="session-timer" id="sessionTimer">&#9202; 00:00:00</div>
+<div class="save-indicator" id="saveIndicator"><span class="save-dot"></span> Saved</div>
+</div>
+</div>
+<div class="header-controls">
+<button class="header-btn" onclick="toggleDarkMode()" id="darkModeBtn">&#127769; Dark Mode</button>
+<button class="header-btn" onclick="autoDetectWeather()" id="weatherBtn">&#127326; Auto Weather</button>
+<div class="inspection-progress">
+<div class="prog-label">Inspection Progress</div>
+<div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+</div>
+</div>
 </div>
 
 <div class="tab-bar" id="tabBar">
@@ -125,7 +203,13 @@ textarea{resize:vertical;min-height:70px}
 <h3><span class="icon">&#128295;</span> Inspector Information</h3>
 <div class="row"><div><label>Inspector Name</label><input type="text" id="inspName"></div><div><label>License/Certification #</label><input type="text" id="inspLicense"></div></div>
 <div class="row"><div><label>Title</label><select id="inspTitle"><option>Professional Engineer (PE)</option><option>Registered Architect (RA)</option><option>Special Inspector</option><option>Building Inspector</option></select></div><div><label>Company</label><input type="text" id="inspCompany"></div></div>
-<label>Inspector Signature (Type name)</label><input type="text" id="inspSig" placeholder="Type full name as electronic signature">
+<label>Inspector Signature</label>
+<div class="sig-pad-wrap"><canvas id="sigCanvas" width="400" height="120"></canvas></div>
+<div class="sig-actions">
+<button class="btn btn-danger btn-sm" onclick="clearSignature()">Clear Signature</button>
+<span style="font-size:.75rem;color:#777;margin-left:8px" id="sigStatus">Draw your signature above</span>
+</div>
+<input type="hidden" id="inspSig" value="">
 </div>
 </div>
 
@@ -181,6 +265,7 @@ textarea{resize:vertical;min-height:70px}
 <h3>&#128229; Export Options</h3>
 <p style="font-size:.85rem;margin-bottom:12px">Generate comprehensive reports for submittal and documentation.</p>
 <div class="action-bar">
+<button class="btn btn-primary" onclick="exportPDF()">&#128196; Export PDF Report</button>
 <button class="btn btn-warning" onclick="exportExcel()">&#128202; Export to Excel</button>
 <button class="btn btn-success" onclick="exportJSON()">&#128190; Save Project (JSON)</button>
 <button class="btn btn-accent" onclick="loadJSON()">&#128194; Load Project</button>
@@ -207,7 +292,7 @@ textarea{resize:vertical;min-height:70px}
 
 <div class="card">
 <h3><span class="icon">&#128221;</span> Inspector Notes &amp; Recommendations</h3>
-<textarea id="inspNotes" rows="6" placeholder="Enter overall assessment notes, recommendations, and required follow-up actions..."></textarea>
+<div class="input-with-voice"><textarea id="inspNotes" rows="6" placeholder="Enter overall assessment notes, recommendations, and required follow-up actions..."></textarea><button class="voice-btn" onclick="startVoice('inspNotes')" title="Voice input">&#127908;</button></div>
 </div>
 </div>
 
@@ -222,11 +307,17 @@ textarea{resize:vertical;min-height:70px}
 <label>Severity</label>
 <select id="defSeverity"><option value="1">1 - Minor (Cosmetic)</option><option value="2">2 - Moderate (1-3 year repair)</option><option value="3" selected>3 - Serious (6-12 month repair)</option><option value="4">4 - Severe (Immediate repair)</option><option value="5">5 - Critical (Life Safety)</option></select>
 <div class="row3"><div><label>Quantity</label><input type="number" id="defQty" step="0.1" value="1"></div><div><label>Unit</label><select id="defUnit"><option>SF</option><option>LF</option><option>Each</option><option>% Area</option></select></div><div><label>Est. Unit Cost ($)</label><input type="number" id="defCost" step="0.01" placeholder="e.g., 45.00"></div></div>
-<label>Description</label><textarea id="defDesc" placeholder="Describe the deficiency in detail..."></textarea>
-<label>Recommended Action</label><textarea id="defAction" placeholder="Recommended repair approach..."></textarea>
+<label>Description</label>
+<div class="input-with-voice"><textarea id="defDesc" placeholder="Describe the deficiency in detail..."></textarea><button class="voice-btn" onclick="startVoice('defDesc')" title="Voice input">&#127908;</button></div>
+<label>Recommended Action</label>
+<div class="input-with-voice"><textarea id="defAction" placeholder="Recommended repair approach..."></textarea><button class="voice-btn" onclick="startVoice('defAction')" title="Voice input">&#127908;</button></div>
 <label>Attach Photo</label>
 <input type="file" id="defPhotoInput" accept="image/*" capture="environment" onchange="handleDefPhoto(event)" style="margin-bottom:4px">
 <div id="defPhotoPreview" style="margin-bottom:10px"></div>
+<div class="card" style="background:#f8f9fa;margin:10px 0;padding:10px" id="batchSection">
+<label><input type="checkbox" id="batchMode" onchange="toggleBatchMode()" style="width:auto;margin-right:6px">Apply to multiple floors</label>
+<div class="batch-floor-grid hidden" id="batchFloorGrid"></div>
+</div>
 <div class="action-bar" style="justify-content:flex-end;margin-top:14px">
 <button class="btn btn-danger btn-sm" onclick="closeDefModal()">Cancel</button>
 <button class="btn btn-success" onclick="saveDeficiency()">Save Deficiency</button>
@@ -277,6 +368,9 @@ textarea{resize:vertical;min-height:70px}
 </div>
 </div>
 
+<!-- PDF PREVIEW (hidden, used for PDF generation) -->
+<div class="pdf-preview" id="pdfPreview"></div>
+
 <!-- TOAST -->
 <div class="toast hidden" id="toast"></div>
 
@@ -312,14 +406,39 @@ const SAFETY_ITEMS = [
 const QUICK_DEFICIENCIES = [
   {component:"Concrete - Spalling",severity:3,unit:"SF",cost:55,desc:"Concrete spalling with exposed aggregate"},
   {component:"Concrete - Cracking",severity:2,unit:"LF",cost:25,desc:"Hairline to moderate cracking in concrete"},
+  {component:"Concrete - Delamination",severity:3,unit:"SF",cost:50,desc:"Concrete delamination detected by sounding"},
+  {component:"Concrete - Efflorescence",severity:1,unit:"SF",cost:15,desc:"White mineral deposits indicating moisture migration"},
   {component:"Concrete - Rebar Exposure",severity:4,unit:"SF",cost:85,desc:"Exposed reinforcing steel with section loss"},
+  {component:"Concrete - Honeycombing",severity:3,unit:"SF",cost:60,desc:"Voids in concrete surface from poor consolidation"},
+  {component:"Concrete - Pop-outs",severity:1,unit:"Each",cost:20,desc:"Conical fragments popped from concrete surface"},
   {component:"Masonry - Mortar Deterioration",severity:2,unit:"LF",cost:35,desc:"Mortar joint deterioration requiring repointing"},
+  {component:"Masonry - Brick Deterioration",severity:3,unit:"SF",cost:55,desc:"Brick face spalling or deterioration"},
+  {component:"Masonry - Water Infiltration",severity:3,unit:"SF",cost:45,desc:"Evidence of water penetration through masonry"},
+  {component:"Masonry - Efflorescence",severity:1,unit:"SF",cost:12,desc:"Salt deposits on masonry surface"},
+  {component:"Masonry - Step Cracking",severity:3,unit:"LF",cost:40,desc:"Diagonal step cracking along mortar joints"},
   {component:"Stucco/EIFS - Delamination",severity:3,unit:"SF",cost:45,desc:"Stucco delamination from substrate"},
+  {component:"Stucco/EIFS - Moisture Intrusion",severity:4,unit:"SF",cost:70,desc:"Moisture trapped behind EIFS system"},
+  {component:"Stucco/EIFS - Fastener Corrosion",severity:3,unit:"Each",cost:30,desc:"Corroded fasteners in EIFS cladding system"},
+  {component:"Stucco/EIFS - Impact Damage",severity:2,unit:"SF",cost:35,desc:"Physical impact damage to stucco/EIFS surface"},
   {component:"Window - Sealant Failure",severity:2,unit:"LF",cost:18,desc:"Perimeter sealant cracked/missing at window frame"},
-  {component:"Balcony - Railing Corrosion",severity:3,unit:"Each",cost:350,desc:"Balcony railing showing significant corrosion"},
+  {component:"Window - Frame Corrosion",severity:3,unit:"Each",cost:250,desc:"Window frame showing corrosion/oxidation"},
+  {component:"Window - Glazing Failure",severity:3,unit:"Each",cost:400,desc:"Glazing seal failure, fogging between panes"},
+  {component:"Window - Cracked Glass",severity:4,unit:"Each",cost:350,desc:"Cracked or broken window glazing"},
+  {component:"Door - Sealant Failure",severity:2,unit:"LF",cost:18,desc:"Door frame sealant deteriorated or missing"},
+  {component:"Door - Frame Corrosion",severity:3,unit:"Each",cost:300,desc:"Door frame showing corrosion/deterioration"},
   {component:"Waterproofing - Sealant Degradation",severity:2,unit:"LF",cost:22,desc:"Exterior joint sealant degraded/failing"},
+  {component:"Waterproofing - Membrane Failure",severity:4,unit:"SF",cost:75,desc:"Waterproofing membrane cracked or delaminated"},
+  {component:"Balcony - Railing Corrosion",severity:3,unit:"Each",cost:350,desc:"Balcony railing showing significant corrosion"},
+  {component:"Balcony - Structural Deterioration",severity:5,unit:"SF",cost:120,desc:"Balcony structural member deterioration - LIFE SAFETY"},
   {component:"Balcony - Waterproofing Failure",severity:3,unit:"SF",cost:65,desc:"Balcony deck waterproofing membrane failing"},
-  {component:"Parapet - Cap Deterioration",severity:2,unit:"LF",cost:40,desc:"Parapet cap cracked or displaced"}
+  {component:"Balcony - Soffit Spalling",severity:4,unit:"SF",cost:80,desc:"Spalling on underside of balcony slab"},
+  {component:"Parapet - Cap Deterioration",severity:2,unit:"LF",cost:40,desc:"Parapet cap cracked or displaced"},
+  {component:"Parapet - Flashing Failure",severity:3,unit:"LF",cost:35,desc:"Parapet flashing detached or deteriorated"},
+  {component:"MEP Penetration - Sealant Failure",severity:2,unit:"Each",cost:25,desc:"Sealant failure around mechanical/electrical penetration"},
+  {component:"Roof Edge - Flashing",severity:3,unit:"LF",cost:30,desc:"Roof edge flashing loose or deteriorated"},
+  {component:"Control Joint - Sealant Failure",severity:2,unit:"LF",cost:20,desc:"Control/expansion joint sealant failed"},
+  {component:"Metal Panel - Corrosion",severity:3,unit:"SF",cost:55,desc:"Metal cladding panel corrosion or fastener failure"},
+  {component:"Coating - Peeling/Flaking",severity:1,unit:"SF",cost:12,desc:"Protective coating peeling or flaking from surface"}
 ];
 
 // ============ TAB NAVIGATION ============
@@ -370,7 +489,7 @@ function openDeficiencyModal(){
   document.getElementById('defModal').classList.remove('hidden');
 }
 function closeDefModal(){document.getElementById('defModal').classList.add('hidden');editingDefId=null;clearDefForm()}
-function clearDefForm(){['defBay','defFloor','defHeight','defQty','defDesc','defAction','defCost'].forEach(id=>{const el=document.getElementById(id);el.value=id==='defQty'?'1':''});document.getElementById('defSeverity').value='3';document.getElementById('defElev').value='North';document.getElementById('defComponent').selectedIndex=0;document.getElementById('defUnit').value='SF';tempDefPhoto=null;document.getElementById('defPhotoPreview').innerHTML='';document.getElementById('defPhotoInput').value=''}
+function clearDefForm(){['defBay','defFloor','defHeight','defQty','defDesc','defAction','defCost'].forEach(id=>{const el=document.getElementById(id);el.value=id==='defQty'?'1':''});document.getElementById('defSeverity').value='3';document.getElementById('defElev').value='North';document.getElementById('defComponent').selectedIndex=0;document.getElementById('defUnit').value='SF';tempDefPhoto=null;document.getElementById('defPhotoPreview').innerHTML='';document.getElementById('defPhotoInput').value='';document.getElementById('batchMode').checked=false;document.getElementById('batchFloorGrid').classList.add('hidden')}
 
 function handleDefPhoto(e){
   const file=e.target.files[0];
@@ -908,12 +1027,512 @@ function handleLoadJSON(e){
 // ============ HELPERS ============
 function gv(id){return document.getElementById(id)?.value||''}
 function sv(id,val){const el=document.getElementById(id);if(el)el.value=val||''}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),3000)}
+function showToast(msg){
+  hapticFeedback();
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),3000);
+}
+
+// ============ AUTO-SAVE (localStorage) ============
+const SAVE_KEY='swingstage_autosave';
+const FORM_FIELDS=['projName','projNum','bldgAddr','bldgCity','bldgState','bldgZip','bldgType','constType','stories','yearBuilt','totalUnits','grossArea','facadeArea','inspDate','inspType','weather','temp','inspName','inspLicense','inspTitle','inspCompany','inspNotes','loadPlatform','loadWorkers','loadWorkerWt','loadTools'];
+
+function autoSave(){
+  try{
+    const data={
+      fields:{},
+      deficiencies:deficiencies,
+      defIdCounter:defIdCounter,
+      photos:photos.map(p=>({...p})),
+      photoIdCounter:photoIdCounter,
+      safetyChecks:[],
+      signature:gv('inspSig'),
+      darkMode:document.body.classList.contains('dark-mode'),
+      savedAt:new Date().toISOString()
+    };
+    FORM_FIELDS.forEach(id=>data.fields[id]=gv(id));
+    document.querySelectorAll('#safetyChecklist input[type=checkbox]').forEach((cb,i)=>{
+      if(cb.checked)data.safetyChecks.push(i);
+    });
+    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+    updateSaveIndicator(true);
+  }catch(e){console.warn('Auto-save failed:',e)}
+}
+
+function autoRestore(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return false;
+    const data=JSON.parse(raw);
+    if(data.fields){FORM_FIELDS.forEach(id=>sv(id,data.fields[id]))}
+    if(data.deficiencies){deficiencies=data.deficiencies;defIdCounter=data.defIdCounter||deficiencies.length+1;renderDeficiencies();updatePhotoDefLinks()}
+    if(data.photos){photos=data.photos;photoIdCounter=data.photoIdCounter||photos.length+1;renderPhotos()}
+    if(data.safetyChecks){
+      const cbs=document.querySelectorAll('#safetyChecklist input[type=checkbox]');
+      data.safetyChecks.forEach(i=>{if(cbs[i])cbs[i].checked=true});
+      updateSafetyProgress();
+    }
+    if(data.signature)sv('inspSig',data.signature);
+    if(data.darkMode)document.body.classList.add('dark-mode');
+    calcLoad();
+    updateSaveIndicator(true);
+    return true;
+  }catch(e){console.warn('Auto-restore failed:',e);return false}
+}
+
+function updateSaveIndicator(saved){
+  const el=document.getElementById('saveIndicator');
+  const dot=el.querySelector('.save-dot');
+  if(saved){dot.classList.remove('unsaved');el.innerHTML=`<span class="save-dot"></span> Saved ${new Date().toLocaleTimeString()}`}
+  else{dot&&dot.classList.add('unsaved')}
+}
+
+function setupAutoSave(){
+  let saveTimer=null;
+  const triggerSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(autoSave,1000);updateSaveIndicator(false)};
+  FORM_FIELDS.forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',triggerSave)});
+  document.querySelectorAll('#safetyChecklist input[type=checkbox]').forEach(cb=>cb.addEventListener('change',triggerSave));
+  const origSaveDef=window.saveDeficiency;
+  const origDelDef=window.deleteDeficiency;
+  const wrap=(fn)=>function(){fn.apply(this,arguments);triggerSave()};
+  // Auto-save is triggered by observing state changes via MutationObserver on deficiency list
+  new MutationObserver(triggerSave).observe(document.getElementById('deficiencyList'),{childList:true,subtree:true});
+  new MutationObserver(triggerSave).observe(document.getElementById('photoGrid'),{childList:true,subtree:true});
+}
+
+// ============ DARK MODE ============
+function toggleDarkMode(){
+  document.body.classList.toggle('dark-mode');
+  const btn=document.getElementById('darkModeBtn');
+  const isDark=document.body.classList.contains('dark-mode');
+  btn.classList.toggle('active',isDark);
+  btn.innerHTML=isDark?'&#9728;&#65039; Light Mode':'&#127769; Dark Mode';
+  autoSave();
+}
+
+// ============ DIGITAL SIGNATURE PAD ============
+let sigDrawing=false;
+let sigCtx=null;
+
+function initSignaturePad(){
+  const canvas=document.getElementById('sigCanvas');
+  if(!canvas)return;
+  sigCtx=canvas.getContext('2d');
+  sigCtx.strokeStyle='#1a5276';
+  sigCtx.lineWidth=2;
+  sigCtx.lineCap='round';
+  sigCtx.lineJoin='round';
+
+  canvas.addEventListener('pointerdown',function(e){
+    e.preventDefault();
+    sigDrawing=true;
+    const r=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/r.width;
+    const scaleY=canvas.height/r.height;
+    sigCtx.beginPath();
+    sigCtx.moveTo((e.clientX-r.left)*scaleX,(e.clientY-r.top)*scaleY);
+  });
+  canvas.addEventListener('pointermove',function(e){
+    if(!sigDrawing)return;
+    e.preventDefault();
+    const r=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/r.width;
+    const scaleY=canvas.height/r.height;
+    sigCtx.lineTo((e.clientX-r.left)*scaleX,(e.clientY-r.top)*scaleY);
+    sigCtx.stroke();
+  });
+  canvas.addEventListener('pointerup',function(){
+    sigDrawing=false;
+    // Save signature as data URL to hidden input
+    document.getElementById('inspSig').value=canvas.toDataURL('image/png');
+    document.getElementById('sigStatus').textContent='Signature captured';
+    document.getElementById('sigStatus').style.color='var(--success)';
+    autoSave();
+  });
+  canvas.addEventListener('pointerleave',function(){sigDrawing=false});
+}
+
+function clearSignature(){
+  const canvas=document.getElementById('sigCanvas');
+  if(!canvas)return;
+  sigCtx.clearRect(0,0,canvas.width,canvas.height);
+  document.getElementById('inspSig').value='';
+  document.getElementById('sigStatus').textContent='Draw your signature above';
+  document.getElementById('sigStatus').style.color='#777';
+}
+
+// ============ VOICE-TO-TEXT ============
+let activeRecognition=null;
+let activeVoiceBtn=null;
+
+function startVoice(targetId){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    showToast('Voice input not supported in this browser');return;
+  }
+  const btn=event.currentTarget;
+  // If already recording, stop
+  if(activeRecognition){
+    activeRecognition.stop();
+    activeRecognition=null;
+    if(activeVoiceBtn)activeVoiceBtn.classList.remove('recording');
+    activeVoiceBtn=null;
+    return;
+  }
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const recognition=new SpeechRecognition();
+  recognition.continuous=true;
+  recognition.interimResults=true;
+  recognition.lang='en-US';
+
+  activeRecognition=recognition;
+  activeVoiceBtn=btn;
+  btn.classList.add('recording');
+  btn.innerHTML='&#9209;&#65039;';
+
+  const target=document.getElementById(targetId);
+  const startText=target.value;
+
+  recognition.onresult=function(e){
+    let interim='';
+    let final=startText;
+    for(let i=0;i<e.results.length;i++){
+      if(e.results[i].isFinal){final+=(final?' ':'')+e.results[i][0].transcript}
+      else{interim+=e.results[i][0].transcript}
+    }
+    target.value=final+(interim?' '+interim:'');
+  };
+  recognition.onerror=function(){stopVoice()};
+  recognition.onend=function(){stopVoice()};
+  recognition.start();
+  showToast('Listening... Tap again to stop');
+}
+
+function stopVoice(){
+  if(activeRecognition){try{activeRecognition.stop()}catch(e){}}
+  activeRecognition=null;
+  if(activeVoiceBtn){activeVoiceBtn.classList.remove('recording');activeVoiceBtn.innerHTML='&#127908;'}
+  activeVoiceBtn=null;
+}
+
+// ============ PROGRESS INDICATOR ============
+function updateProgress(){
+  let total=0,filled=0;
+  // Project fields
+  const projFields=['projName','projNum','bldgAddr','bldgCity','bldgState','bldgZip','stories','yearBuilt'];
+  projFields.forEach(id=>{total++;if(gv(id))filled++});
+  // Inspector fields
+  const inspFields=['inspName','inspLicense','inspCompany'];
+  inspFields.forEach(id=>{total++;if(gv(id))filled++});
+  // Inspection date
+  total++;if(gv('inspDate'))filled++;
+  // Safety checklist (count as 1 item if >50% checked)
+  total++;
+  const safetyCbs=document.querySelectorAll('#safetyChecklist input[type=checkbox]');
+  const safetyChecked=document.querySelectorAll('#safetyChecklist input[type=checkbox]:checked').length;
+  if(safetyCbs.length&&safetyChecked/safetyCbs.length>0.5)filled++;
+  // At least 1 deficiency logged
+  total++;if(deficiencies.length>0)filled++;
+  // At least 1 photo taken
+  total++;if(photos.length>0)filled++;
+  // Signature
+  total++;if(gv('inspSig'))filled++;
+  // Notes
+  total++;if(gv('inspNotes'))filled++;
+
+  const pct=total?Math.round(filled/total*100):0;
+  document.getElementById('progFill').style.width=pct+'%';
+}
+
+// ============ BATCH MULTI-FLOOR DEFICIENCIES ============
+function toggleBatchMode(){
+  const grid=document.getElementById('batchFloorGrid');
+  const checked=document.getElementById('batchMode').checked;
+  if(checked){
+    grid.classList.remove('hidden');
+    const stories=+(gv('stories'))||10;
+    let html='';
+    for(let i=1;i<=stories;i++){
+      html+=`<label class="batch-floor-item"><input type="checkbox" value="Level ${i}"> Fl ${i}</label>`;
+    }
+    html+=`<label class="batch-floor-item"><input type="checkbox" value="Roof"> Roof</label>`;
+    html+=`<label class="batch-floor-item"><input type="checkbox" value="Ground"> Ground</label>`;
+    grid.innerHTML=html;
+  }else{grid.classList.add('hidden')}
+}
+
+// Wrap the original saveDeficiency to support batch mode
+const _origSaveDeficiency=saveDeficiency;
+saveDeficiency=function(){
+  const batchOn=document.getElementById('batchMode').checked;
+  if(!batchOn||editingDefId){
+    _origSaveDeficiency();
+    return;
+  }
+  const checkedFloors=[];
+  document.querySelectorAll('#batchFloorGrid input:checked').forEach(cb=>checkedFloors.push(cb.value));
+  if(checkedFloors.length===0){
+    // No floors selected, just save normally
+    _origSaveDeficiency();
+    return;
+  }
+  // Save one deficiency per selected floor
+  checkedFloors.forEach(floor=>{
+    const d={
+      id:'DEF-'+String(defIdCounter++).padStart(3,'0'),
+      elevation:document.getElementById('defElev').value,
+      bay:document.getElementById('defBay').value,
+      floor:floor,
+      height:document.getElementById('defHeight').value,
+      component:document.getElementById('defComponent').value,
+      severity:+document.getElementById('defSeverity').value,
+      qty:+document.getElementById('defQty').value,
+      unit:document.getElementById('defUnit').value,
+      unitCost:+(document.getElementById('defCost').value)||0,
+      desc:document.getElementById('defDesc').value,
+      action:document.getElementById('defAction').value,
+      photo:tempDefPhoto||null,
+      annotatedPhoto:null,
+      timestamp:new Date().toISOString()
+    };
+    d.totalCost=d.qty*d.unitCost;
+    deficiencies.push(d);
+  });
+  renderDeficiencies();
+  updatePhotoDefLinks();
+  closeDefModal();
+  showToast(`Added ${checkedFloors.length} deficiencies across floors`);
+};
+
+// ============ HAPTIC & AUDIO FEEDBACK ============
+function hapticFeedback(duration){
+  try{if(navigator.vibrate)navigator.vibrate(duration||30)}catch(e){}
+}
+
+function beepSound(freq,duration){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=freq||800;
+    gain.gain.value=0.1;
+    osc.start();
+    setTimeout(()=>{osc.stop();ctx.close()},duration||100);
+  }catch(e){}
+}
+
+// ============ SESSION TIME TRACKING ============
+let sessionStartTime=Date.now();
+
+function updateSessionTimer(){
+  const elapsed=Date.now()-sessionStartTime;
+  const hrs=Math.floor(elapsed/3600000);
+  const mins=Math.floor((elapsed%3600000)/60000);
+  const secs=Math.floor((elapsed%60000)/1000);
+  const pad=n=>String(n).padStart(2,'0');
+  document.getElementById('sessionTimer').innerHTML=`&#9202; ${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+}
+
+// ============ WEATHER AUTO-DETECTION ============
+async function autoDetectWeather(){
+  const btn=document.getElementById('weatherBtn');
+  btn.innerHTML='&#8987; Detecting...';
+  btn.disabled=true;
+  try{
+    // Get location
+    const pos=await new Promise((resolve,reject)=>{
+      navigator.geolocation.getCurrentPosition(resolve,reject,{timeout:10000});
+    });
+    const lat=pos.coords.latitude;
+    const lon=pos.coords.longitude;
+    // Fetch weather from Open-Meteo (free, no API key)
+    const resp=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph`);
+    const data=await resp.json();
+    if(data.current){
+      // Set temperature
+      sv('temp',Math.round(data.current.temperature_2m));
+      // Map weather code to our dropdown
+      const code=data.current.weather_code;
+      let weather='Clear / Sunny';
+      if(code>=1&&code<=3)weather='Partly Cloudy';
+      if(code>=45&&code<=48)weather='Overcast';
+      if(code>=51&&code<=67||code>=80&&code<=82)weather='Light Rain';
+      if(data.current.wind_speed_10m>20)weather='Windy (>20 mph)';
+      sv('weather',weather);
+      showToast(`Weather updated: ${Math.round(data.current.temperature_2m)}\u00b0F, Wind: ${Math.round(data.current.wind_speed_10m)} mph`);
+    }
+  }catch(e){
+    showToast('Could not detect weather: '+e.message);
+  }finally{
+    btn.innerHTML='&#127326; Auto Weather';
+    btn.disabled=false;
+  }
+}
+
+// ============ PDF REPORT GENERATION ============
+function exportPDF(){
+  if(typeof html2pdf==='undefined'){showToast('PDF library not loaded. Check internet connection.');return}
+  const preview=document.getElementById('pdfPreview');
+  const totalCost=deficiencies.reduce((s,d)=>s+d.totalCost,0);
+  const immediateCost=deficiencies.filter(d=>d.severity>=4).reduce((s,d)=>s+d.totalCost,0);
+  const nearTermCost=deficiencies.filter(d=>d.severity===3).reduce((s,d)=>s+d.totalCost,0);
+  const routineCost=deficiencies.filter(d=>d.severity<=2).reduce((s,d)=>s+d.totalCost,0);
+  const contingency=Math.round(totalCost*.15);
+  const severityLabels={1:'Minor',2:'Moderate',3:'Serious',4:'Severe',5:'Critical'};
+  const badgeColors={1:'#27ae60',2:'#f39c12',3:'#e67e22',4:'#c0392b',5:'#922b21'};
+
+  // Safety checklist stats
+  const safetyCbs=document.querySelectorAll('#safetyChecklist input[type=checkbox]');
+  const safetyChecked=document.querySelectorAll('#safetyChecklist input[type=checkbox]:checked').length;
+  const safetyPct=safetyCbs.length?Math.round(safetyChecked/safetyCbs.length*100):0;
+
+  // Build safety items HTML
+  let safetyHTML='';
+  let cbIdx=0;
+  const allCbs=document.querySelectorAll('#safetyChecklist input[type=checkbox]');
+  SAFETY_ITEMS.forEach(cat=>{
+    safetyHTML+=`<tr><td colspan="2" style="background:#eaf2f8;font-weight:700">${cat.cat}</td></tr>`;
+    cat.items.forEach(item=>{
+      const passed=allCbs[cbIdx]&&allCbs[cbIdx].checked;
+      safetyHTML+=`<tr><td>${item}</td><td style="text-align:center;color:${passed?'#27ae60':'#c0392b'};font-weight:700">${passed?'PASS':'FAIL'}</td></tr>`;
+      cbIdx++;
+    });
+  });
+
+  // Build deficiency rows
+  let defHTML='';
+  deficiencies.forEach(d=>{
+    defHTML+=`<tr>
+      <td>${d.id}</td>
+      <td>${d.elevation}</td>
+      <td>${d.floor||'-'}</td>
+      <td>${d.component}</td>
+      <td><span class="severity-badge" style="background:${badgeColors[d.severity]}">${severityLabels[d.severity]}</span></td>
+      <td>${d.qty} ${d.unit}</td>
+      <td>$${d.totalCost.toLocaleString()}</td>
+      <td style="font-size:10px">${d.desc||'-'}</td>
+    </tr>`;
+  });
+
+  // Signature image
+  const sigData=gv('inspSig');
+  const sigHTML=sigData&&sigData.startsWith('data:image')?`<img src="${sigData}" style="max-height:60px;border-bottom:1px solid #333">`:`<em>${sigData||'Not signed'}</em>`;
+
+  preview.innerHTML=`
+    <h1>SWING STAGE FIELD INSPECTION REPORT</h1>
+    <table>
+      <tr><td style="width:30%;font-weight:600">Project Name</td><td>${gv('projName')}</td></tr>
+      <tr><td style="font-weight:600">Project Number</td><td>${gv('projNum')}</td></tr>
+      <tr><td style="font-weight:600">Address</td><td>${gv('bldgAddr')}, ${gv('bldgCity')}, ${gv('bldgState')} ${gv('bldgZip')}</td></tr>
+      <tr><td style="font-weight:600">Building Type</td><td>${gv('bldgType')} | ${gv('constType')}</td></tr>
+      <tr><td style="font-weight:600">Stories / Year Built</td><td>${gv('stories')} stories | Built ${gv('yearBuilt')}</td></tr>
+      <tr><td style="font-weight:600">Facade Area</td><td>${gv('facadeArea')} SF</td></tr>
+      <tr><td style="font-weight:600">Inspection Date</td><td>${gv('inspDate')}</td></tr>
+      <tr><td style="font-weight:600">Inspection Type</td><td>${gv('inspType')}</td></tr>
+      <tr><td style="font-weight:600">Weather</td><td>${gv('weather')} | ${gv('temp')}\u00b0F</td></tr>
+      <tr><td style="font-weight:600">Inspector</td><td>${gv('inspName')} | ${gv('inspTitle')}</td></tr>
+      <tr><td style="font-weight:600">License #</td><td>${gv('inspLicense')}</td></tr>
+      <tr><td style="font-weight:600">Company</td><td>${gv('inspCompany')}</td></tr>
+    </table>
+
+    <h2>Executive Summary</h2>
+    <table>
+      <tr><td style="width:50%">Total Deficiencies</td><td><strong>${deficiencies.length}</strong></td></tr>
+      <tr><td>Critical/Severe (Severity 4-5)</td><td style="color:#c0392b"><strong>${deficiencies.filter(d=>d.severity>=4).length}</strong></td></tr>
+      <tr><td>Photos Documented</td><td><strong>${photos.length}</strong></td></tr>
+      <tr><td>Safety Checklist Compliance</td><td><strong>${safetyPct}%</strong></td></tr>
+      <tr><td>Total Estimated Repair Cost</td><td style="color:#1a5276"><strong>$${(totalCost+contingency).toLocaleString()}</strong></td></tr>
+    </table>
+
+    <h2>Safety Checklist Results</h2>
+    <table><tr><th>Item</th><th style="width:60px">Status</th></tr>${safetyHTML}</table>
+
+    <h2>Load Calculations</h2>
+    <table>
+      <tr><td>Total Suspended Load</td><td><strong>${gv('loadTotal')}</strong></td></tr>
+      <tr><td>Required Rope Rating (6\u00d7)</td><td><strong>${gv('loadRope')}</strong></td></tr>
+      <tr><td>Required Counterweight (4\u00d7)</td><td><strong>${gv('loadCounter4')}</strong></td></tr>
+      <tr><td>Recommended Counterweight (7\u00d7)</td><td><strong>${gv('loadCounter7')}</strong></td></tr>
+    </table>
+
+    <h2>Deficiency Log</h2>
+    ${deficiencies.length?`<table>
+      <tr><th>ID</th><th>Elev</th><th>Floor</th><th>Component</th><th>Severity</th><th>Qty</th><th>Cost</th><th>Description</th></tr>
+      ${defHTML}
+    </table>`:'<p>No deficiencies logged.</p>'}
+
+    <h2>Cost Estimate Summary</h2>
+    <table>
+      <tr><td>Immediate Repairs (Severity 4-5)</td><td style="text-align:right"><strong>$${immediateCost.toLocaleString()}</strong></td></tr>
+      <tr><td>Near-Term Repairs (Severity 3)</td><td style="text-align:right"><strong>$${nearTermCost.toLocaleString()}</strong></td></tr>
+      <tr><td>Routine Maintenance (Severity 1-2)</td><td style="text-align:right"><strong>$${routineCost.toLocaleString()}</strong></td></tr>
+      <tr><td>Contingency (15%)</td><td style="text-align:right"><strong>$${contingency.toLocaleString()}</strong></td></tr>
+      <tr style="background:#1a5276;color:#fff"><td><strong>TOTAL ESTIMATED COST</strong></td><td style="text-align:right"><strong>$${(totalCost+contingency).toLocaleString()}</strong></td></tr>
+    </table>
+
+    <h2>Inspector Notes & Recommendations</h2>
+    <p>${(gv('inspNotes')||'No additional notes.').replace(/\n/g,'<br>')}</p>
+
+    <h2>Certification</h2>
+    <p>I hereby certify that I have personally inspected the above-referenced building facade and that the findings presented in this report are accurate to the best of my professional knowledge.</p>
+    <div style="margin-top:20px">
+      <div style="margin-bottom:4px">Inspector Signature:</div>
+      ${sigHTML}
+      <div style="margin-top:8px"><strong>${gv('inspName')}</strong> | ${gv('inspTitle')}</div>
+      <div>${gv('inspCompany')} | License: ${gv('inspLicense')}</div>
+      <div>Date: ${gv('inspDate')}</div>
+    </div>
+  `;
+
+  preview.style.display='block';
+  showToast('Generating PDF...');
+
+  const opt={
+    margin:[0.5,0.5,0.5,0.5],
+    filename:`Inspection_${gv('projNum')||'Report'}_${new Date().toISOString().slice(0,10)}.pdf`,
+    image:{type:'jpeg',quality:0.95},
+    html2canvas:{scale:2,useCORS:true},
+    jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
+    pagebreak:{mode:['avoid-all','css','legacy']}
+  };
+
+  html2pdf().set(opt).from(preview).save().then(()=>{
+    preview.style.display='none';
+    showToast('PDF report exported!');
+    beepSound(1000,150);
+  }).catch(err=>{
+    preview.style.display='none';
+    showToast('PDF error: '+err.message);
+  });
+}
 
 // ============ INIT ============
 buildSafetyChecklist();
 calcLoad();
 document.getElementById('inspDate').value=new Date().toISOString().slice(0,10);
+
+// Restore saved state
+const wasRestored=autoRestore();
+if(wasRestored)showToast('Previous inspection data restored');
+
+// Init signature pad
+initSignaturePad();
+
+// Setup auto-save listeners
+setupAutoSave();
+
+// Progress tracker - update on any interaction
+setInterval(updateProgress,2000);
+updateProgress();
+
+// Session timer
+setInterval(updateSessionTimer,1000);
+
+// Restore dark mode button label
+if(document.body.classList.contains('dark-mode')){
+  const btn=document.getElementById('darkModeBtn');
+  btn.classList.add('active');
+  btn.innerHTML='&#9728;&#65039; Light Mode';
+}
 </script>
 </body>
 </html>
