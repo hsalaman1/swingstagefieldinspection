@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Swing Stage Field Inspection App</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root{--primary:#1a5276;--primary-light:#2980b9;--accent:#e67e22;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;--bg:#f4f6f9;--card:#fff;--text:#2c3e50;--border:#dce1e8;--radius:10px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -181,6 +183,8 @@ textarea{resize:vertical;min-height:70px}
 <h3>&#128229; Export Options</h3>
 <p style="font-size:.85rem;margin-bottom:12px">Generate comprehensive reports for submittal and documentation.</p>
 <div class="action-bar">
+<button class="btn btn-primary" onclick="exportPDF()">&#128196; Export PDF Report</button>
+<button class="btn btn-accent" onclick="exportWord()">&#128195; Export Word Doc</button>
 <button class="btn btn-warning" onclick="exportExcel()">&#128202; Export to Excel</button>
 <button class="btn btn-success" onclick="exportJSON()">&#128190; Save Project (JSON)</button>
 <button class="btn btn-accent" onclick="loadJSON()">&#128194; Load Project</button>
@@ -903,6 +907,398 @@ function handleLoadJSON(e){
   };
   reader.readAsText(file);
   e.target.value='';
+}
+
+// ============ PDF EXPORT ============
+function getImageDims(dataUrl){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>resolve({w:img.naturalWidth,h:img.naturalHeight});
+    img.onerror=()=>resolve({w:400,h:300});
+    img.src=dataUrl;
+  });
+}
+
+async function exportPDF(){
+  if(typeof window.jspdf==='undefined'){showToast('PDF library still loading. Please try again in a moment.');return}
+  showToast('Generating PDF report...');
+  await new Promise(r=>setTimeout(r,100));
+
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF('p','mm','letter');
+  const pageW=doc.internal.pageSize.getWidth();
+  const pageH=doc.internal.pageSize.getHeight();
+  const margin=15;
+  const usableW=pageW-2*margin;
+  let y=margin;
+  const severityLabels={1:'Minor',2:'Moderate',3:'Serious',4:'Severe',5:'Critical'};
+  const severityColors={1:[39,174,96],2:[243,156,18],3:[230,126,34],4:[192,57,43],5:[146,43,33]};
+
+  function addPageHeader(){
+    doc.setFontSize(8);doc.setTextColor(128);
+    doc.text('Swing Stage Field Inspection Report',margin,8);
+    doc.text('Project #'+(gv('projNum')||'N/A'),pageW-margin,8,{align:'right'});
+    doc.setDrawColor(200);doc.line(margin,10,pageW-margin,10);
+    y=15;
+  }
+  function checkPage(needed){
+    if(y+needed>pageH-margin){doc.addPage();addPageHeader()}
+  }
+
+  // ===== COVER =====
+  doc.setFillColor(26,82,118);
+  doc.rect(0,0,pageW,50,'F');
+  doc.setTextColor(255);doc.setFontSize(22);doc.setFont(undefined,'bold');
+  doc.text('BUILDING FACADE',pageW/2,22,{align:'center'});
+  doc.text('INSPECTION REPORT',pageW/2,34,{align:'center'});
+  doc.setFontSize(10);doc.setFont(undefined,'normal');
+  doc.text('Swing Stage Field Assessment',pageW/2,44,{align:'center'});
+
+  y=60;doc.setTextColor(44,62,80);
+  doc.setFontSize(16);doc.setFont(undefined,'bold');
+  doc.text(gv('projName')||'Untitled Project',margin,y);y+=8;
+  doc.setFontSize(10);doc.setFont(undefined,'normal');
+  doc.text('Project #: '+(gv('projNum')||'N/A'),margin,y);y+=6;
+  doc.text([gv('bldgAddr'),gv('bldgCity'),gv('bldgState'),gv('bldgZip')].filter(Boolean).join(', '),margin,y);y+=12;
+
+  // Project details table
+  doc.autoTable({startY:y,margin:{left:margin,right:margin},theme:'grid',
+    headStyles:{fillColor:[26,82,118],textColor:255,fontStyle:'bold'},
+    head:[['PROJECT DETAILS','']],
+    body:[['Building Type',gv('bldgType')],['Construction Type',gv('constType')],['Stories',gv('stories')],['Year Built',gv('yearBuilt')],['Total Units',gv('totalUnits')],['Gross Area',gv('grossArea')+' SF'],['Facade Area',gv('facadeArea')+' SF']],
+    columnStyles:{0:{fontStyle:'bold',cellWidth:60}}
+  });
+  y=doc.lastAutoTable.finalY+10;
+
+  // Inspection details table
+  doc.autoTable({startY:y,margin:{left:margin,right:margin},theme:'grid',
+    headStyles:{fillColor:[26,82,118],textColor:255,fontStyle:'bold'},
+    head:[['INSPECTION DETAILS','']],
+    body:[['Date',gv('inspDate')],['Type',gv('inspType')],['Weather',gv('weather')],['Temperature',gv('temp')+'\u00b0F'],['Inspector',gv('inspName')],['License #',gv('inspLicense')],['Title',gv('inspTitle')],['Company',gv('inspCompany')]],
+    columnStyles:{0:{fontStyle:'bold',cellWidth:60}}
+  });
+  y=doc.lastAutoTable.finalY+10;
+
+  // ===== SAFETY CHECKLIST =====
+  doc.addPage();addPageHeader();
+  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+  doc.text('SAFETY CHECKLIST \u2014 OSHA 29 CFR 1926.451/452',margin,y);y+=8;
+
+  const safetyRows=[];let chkIdx=0;
+  const chkBoxes=document.querySelectorAll('#safetyChecklist input[type=checkbox]');
+  SAFETY_ITEMS.forEach(cat=>{cat.items.forEach(item=>{
+    safetyRows.push([cat.cat,item,chkBoxes[chkIdx]?.checked?'PASS':'FAIL']);chkIdx++;
+  })});
+  doc.autoTable({startY:y,margin:{left:margin,right:margin},theme:'grid',
+    headStyles:{fillColor:[26,82,118],textColor:255},
+    head:[['Category','Item','Status']],body:safetyRows,
+    columnStyles:{0:{cellWidth:45,fontStyle:'bold'},2:{cellWidth:20,halign:'center'}},
+    didParseCell:function(data){
+      if(data.section==='body'&&data.column.index===2){
+        data.cell.styles.textColor=data.cell.raw==='FAIL'?[192,57,43]:[39,174,96];
+        if(data.cell.raw==='FAIL')data.cell.styles.fontStyle='bold';
+      }
+    }
+  });
+  y=doc.lastAutoTable.finalY+10;
+
+  // ===== LOAD CALCULATIONS =====
+  checkPage(60);
+  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+  doc.text('LOAD CALCULATIONS',margin,y);y+=8;
+  doc.autoTable({startY:y,margin:{left:margin,right:margin},theme:'grid',
+    headStyles:{fillColor:[26,82,118],textColor:255},
+    head:[['Parameter','Value']],
+    body:[['Platform Weight',gv('loadPlatform')+' lbs'],['Number of Workers',gv('loadWorkers')],['Avg Worker Weight',gv('loadWorkerWt')+' lbs'],['Tools & Materials',gv('loadTools')+' lbs'],['Total Suspended Load',gv('loadTotal')],['Required Rope Rating (6\u00d7)',gv('loadRope')],['Required Counterweight (4\u00d7)',gv('loadCounter4')],['Recommended Counterweight (7\u00d7)',gv('loadCounter7')]],
+    columnStyles:{0:{fontStyle:'bold',cellWidth:70}}
+  });
+  y=doc.lastAutoTable.finalY+10;
+
+  // ===== DEFICIENCY LOG WITH PHOTOS =====
+  if(deficiencies.length){
+    doc.addPage();addPageHeader();
+    doc.setFontSize(14);doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+    doc.text('DEFICIENCY LOG ('+deficiencies.length+' Items)',margin,y);y+=10;
+
+    for(const d of deficiencies){
+      checkPage(60);
+      // Severity-colored header bar
+      const sc=severityColors[d.severity]||[128,128,128];
+      doc.setFillColor(...sc);doc.rect(margin,y-4,usableW,8,'F');
+      doc.setTextColor(255);doc.setFontSize(10);doc.setFont(undefined,'bold');
+      doc.text(d.id+' \u2014 '+d.component,margin+3,y+1);
+      doc.text(severityLabels[d.severity],pageW-margin-3,y+1,{align:'right'});
+      y+=8;
+
+      doc.setTextColor(44,62,80);doc.setFontSize(9);doc.setFont(undefined,'normal');
+      const details=[];
+      if(d.elevation)details.push('Elevation: '+d.elevation);
+      if(d.bay)details.push('Bay: '+d.bay);
+      if(d.floor)details.push('Floor: '+d.floor);
+      if(d.height)details.push('Height: '+d.height+'ft AG');
+      if(details.length){doc.text(details.join(' | '),margin+3,y+1);y+=5}
+
+      if(d.desc){
+        const dl=doc.splitTextToSize(d.desc,usableW-6);
+        checkPage(dl.length*4+4);
+        doc.text(dl,margin+3,y+1);y+=dl.length*4+2;
+      }
+      if(d.action){
+        doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+        const aLabel='Action: ';doc.text(aLabel,margin+3,y+1);
+        const aX=margin+3+doc.getTextWidth(aLabel);
+        doc.setFont(undefined,'normal');doc.setTextColor(44,62,80);
+        const al=doc.splitTextToSize(d.action,usableW-6-doc.getTextWidth(aLabel));
+        doc.text(al,aX,y+1);y+=al.length*4+2;
+      }
+      let costLine='Qty: '+d.qty+' '+d.unit;
+      if(d.unitCost)costLine+=' @ $'+d.unitCost+'/'+d.unit+' = $'+d.totalCost.toLocaleString();
+      doc.setFont(undefined,'normal');doc.setTextColor(44,62,80);
+      doc.text(costLine,margin+3,y+1);y+=6;
+
+      // Embed photo
+      const photoSrc=d.annotatedPhoto||d.photo;
+      if(photoSrc){
+        try{
+          const dims=await getImageDims(photoSrc);
+          const maxIW=usableW-20,maxIH=80;
+          const sc2=Math.min(maxIW/dims.w,maxIH/dims.h);
+          const iw=dims.w*sc2,ih=dims.h*sc2;
+          checkPage(ih+10);
+          const fmt=photoSrc.indexOf('image/png')!==-1?'PNG':'JPEG';
+          doc.addImage(photoSrc,fmt,margin+10,y,iw,ih);
+          y+=ih+5;
+        }catch(err){console.warn('PDF image error',d.id,err)}
+      }
+      doc.setDrawColor(220);doc.line(margin,y,pageW-margin,y);y+=8;
+    }
+  }
+
+  // ===== PHOTO DOCUMENTATION =====
+  if(photos.length){
+    doc.addPage();addPageHeader();
+    doc.setFontSize(14);doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+    doc.text('PHOTO DOCUMENTATION ('+photos.length+' Photos)',margin,y);y+=10;
+
+    for(const p of photos){
+      if(p.data&&!p.data.startsWith('[')){
+        try{
+          const dims=await getImageDims(p.data);
+          const maxIW=usableW-20,maxIH=90;
+          const sc2=Math.min(maxIW/dims.w,maxIH/dims.h);
+          const iw=dims.w*sc2,ih=dims.h*sc2;
+          checkPage(ih+20);
+          const fmt=p.data.indexOf('image/png')!==-1?'PNG':'JPEG';
+          doc.addImage(p.data,fmt,margin+10,y,iw,ih);
+          y+=ih+3;
+        }catch(err){}
+      }
+      doc.setFontSize(8);doc.setTextColor(100);
+      doc.text(p.id+' | '+p.elevation+' | '+p.type+(p.notes?' | '+p.notes:'')+(p.defLink?' | Linked: '+p.defLink:''),margin+10,y+1);
+      y+=12;
+    }
+  }
+
+  // ===== COST SUMMARY =====
+  doc.addPage();addPageHeader();
+  doc.setFontSize(14);doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+  doc.text('COST ESTIMATE SUMMARY',margin,y);y+=8;
+
+  const tc=deficiencies.reduce((s,d)=>s+d.totalCost,0);
+  const ic=deficiencies.filter(d=>d.severity>=4).reduce((s,d)=>s+d.totalCost,0);
+  const nc=deficiencies.filter(d=>d.severity===3).reduce((s,d)=>s+d.totalCost,0);
+  const rc=deficiencies.filter(d=>d.severity<=2).reduce((s,d)=>s+d.totalCost,0);
+  const cg=Math.round(tc*.15);
+
+  doc.autoTable({startY:y,margin:{left:margin,right:margin},theme:'grid',
+    headStyles:{fillColor:[26,82,118],textColor:255},
+    head:[['Priority','Count','Estimated Cost']],
+    body:[
+      ['Immediate (Severity 4-5)',deficiencies.filter(d=>d.severity>=4).length,'$'+ic.toLocaleString()],
+      ['Near-Term (Severity 3)',deficiencies.filter(d=>d.severity===3).length,'$'+nc.toLocaleString()],
+      ['Routine (Severity 1-2)',deficiencies.filter(d=>d.severity<=2).length,'$'+rc.toLocaleString()],
+      ['Contingency (15%)','','$'+cg.toLocaleString()],
+      ['TOTAL ESTIMATED COST',deficiencies.length,'$'+(tc+cg).toLocaleString()]
+    ],
+    columnStyles:{0:{fontStyle:'bold'},2:{halign:'right'}},
+    didParseCell:function(data){
+      if(data.section==='body'&&data.row.index===4){
+        data.cell.styles.fillColor=[26,82,118];data.cell.styles.textColor=[255,255,255];data.cell.styles.fontStyle='bold';
+      }
+    }
+  });
+  y=doc.lastAutoTable.finalY+15;
+
+  // Notes
+  const notes=gv('inspNotes');
+  if(notes){
+    checkPage(40);
+    doc.setFontSize(12);doc.setFont(undefined,'bold');doc.setTextColor(26,82,118);
+    doc.text('INSPECTOR NOTES & RECOMMENDATIONS',margin,y);y+=7;
+    doc.setFontSize(9);doc.setFont(undefined,'normal');doc.setTextColor(44,62,80);
+    const nl=doc.splitTextToSize(notes,usableW);
+    doc.text(nl,margin,y);y+=nl.length*4+12;
+  }
+
+  // Signature block
+  checkPage(30);
+  y+=5;doc.setDrawColor(44,62,80);
+  doc.line(margin,y,margin+80,y);
+  doc.line(pageW-margin-60,y,pageW-margin,y);
+  doc.setFontSize(9);doc.setFont(undefined,'normal');doc.setTextColor(44,62,80);
+  doc.text('Inspector Signature',margin,y+5);
+  doc.text('Date',pageW-margin-60,y+5);
+  if(gv('inspSig')){doc.setFont(undefined,'italic');doc.text(gv('inspSig'),margin,y-3)}
+  doc.setFont(undefined,'normal');
+  doc.text(gv('inspDate')||new Date().toLocaleDateString(),pageW-margin-60,y-3);
+
+  // Page footers
+  const totalPages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPages;i++){
+    doc.setPage(i);doc.setFontSize(8);doc.setTextColor(128);
+    doc.text('Page '+i+' of '+totalPages,pageW/2,pageH-8,{align:'center'});
+    doc.text(new Date().toLocaleDateString(),pageW-margin,pageH-8,{align:'right'});
+  }
+
+  const filename='Inspection_'+(gv('projNum')||'Report')+'_'+new Date().toISOString().slice(0,10)+'.pdf';
+  doc.save(filename);
+  showToast('PDF report exported: '+filename);
+}
+
+// ============ WORD DOC EXPORT ============
+function exportWord(){
+  showToast('Generating Word document...');
+  const severityLabels={1:'Minor',2:'Moderate',3:'Serious',4:'Severe',5:'Critical'};
+  const severityColors={1:'#27ae60',2:'#f39c12',3:'#e67e22',4:'#c0392b',5:'#922b21'};
+
+  // Safety checklist HTML
+  let safetyHTML='';let chkIdx=0;
+  const chkBoxes=document.querySelectorAll('#safetyChecklist input[type=checkbox]');
+  SAFETY_ITEMS.forEach(cat=>{cat.items.forEach(item=>{
+    const passed=chkBoxes[chkIdx]?.checked;
+    safetyHTML+='<tr><td style="padding:6px;border:1px solid #ccc;font-weight:bold;background:#f8f9fa;">'+cat.cat+'</td><td style="padding:6px;border:1px solid #ccc;">'+item+'</td><td style="padding:6px;border:1px solid #ccc;text-align:center;font-weight:bold;color:'+(passed?'#27ae60':'#c0392b')+';">'+(passed?'PASS':'FAIL')+'</td></tr>';
+    chkIdx++;
+  })});
+
+  // Deficiency log HTML with photos
+  let defHTML='';
+  deficiencies.forEach(d=>{
+    const photoSrc=d.annotatedPhoto||d.photo;
+    defHTML+='<div style="border:1px solid #ccc;border-left:4px solid '+severityColors[d.severity]+';padding:12px;margin-bottom:14px;page-break-inside:avoid;">';
+    defHTML+='<h3 style="color:'+severityColors[d.severity]+';margin:0 0 6px 0;font-size:13pt;">'+d.id+' &mdash; '+d.component+' <span style="float:right;background:'+severityColors[d.severity]+';color:#fff;padding:2px 10px;border-radius:10px;font-size:9pt;">'+severityLabels[d.severity]+'</span></h3>';
+    defHTML+='<p style="color:#666;margin:2px 0;font-size:9pt;">'+d.elevation+' Elevation'+(d.bay?' | '+d.bay:'')+(d.floor?' | '+d.floor:'')+(d.height?' | '+d.height+'ft AG':'')+'</p>';
+    if(d.desc)defHTML+='<p style="margin:4px 0;font-size:10pt;">'+d.desc+'</p>';
+    if(d.action)defHTML+='<p style="margin:4px 0;color:#1a5276;font-size:10pt;"><strong>Action:</strong> '+d.action+'</p>';
+    defHTML+='<p style="margin:4px 0;font-size:10pt;">Qty: '+d.qty+' '+d.unit+(d.unitCost?' @ $'+d.unitCost+'/'+d.unit+' = <strong>$'+d.totalCost.toLocaleString()+'</strong>':'')+'</p>';
+    if(photoSrc)defHTML+='<div style="margin-top:8px;"><img src="'+photoSrc+'" style="max-width:480px;max-height:360px;border:1px solid #ddd;" /></div>';
+    defHTML+='</div>';
+  });
+
+  // Photo log HTML
+  let photoHTML='';
+  photos.forEach(p=>{
+    photoHTML+='<div style="margin-bottom:16px;page-break-inside:avoid;">';
+    if(p.data&&!p.data.startsWith('['))photoHTML+='<img src="'+p.data+'" style="max-width:480px;max-height:360px;border:1px solid #ddd;display:block;margin-bottom:4px;" />';
+    photoHTML+='<p style="font-size:9pt;color:#666;margin:2px 0;">'+p.id+' | '+p.elevation+' | '+p.type+(p.notes?' | '+p.notes:'')+(p.defLink?' | Linked: '+p.defLink:'')+'</p></div>';
+  });
+
+  // Cost summary
+  const tc=deficiencies.reduce((s,d)=>s+d.totalCost,0);
+  const ic=deficiencies.filter(d=>d.severity>=4).reduce((s,d)=>s+d.totalCost,0);
+  const nc=deficiencies.filter(d=>d.severity===3).reduce((s,d)=>s+d.totalCost,0);
+  const rc=deficiencies.filter(d=>d.severity<=2).reduce((s,d)=>s+d.totalCost,0);
+  const cg=Math.round(tc*.15);
+
+  const html='<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>'
+    +'@page{size:8.5in 11in;margin:1in;}'
+    +'body{font-family:Calibri,Arial,sans-serif;color:#2c3e50;font-size:11pt;line-height:1.5;}'
+    +'h1{font-size:22pt;color:#1a5276;margin:0;}h2{font-size:14pt;color:#1a5276;border-bottom:2px solid #2980b9;padding-bottom:4px;margin-top:20px;}'
+    +'table{border-collapse:collapse;width:100%;margin-bottom:12px;}th{background:#1a5276;color:#fff;padding:8px;border:1px solid #1a5276;text-align:left;font-size:10pt;}td{padding:6px 8px;border:1px solid #ccc;font-size:10pt;}'
+    +'tr:nth-child(even){background:#f8f9fa;}'
+    +'.cover-bar{background:#1a5276;color:#fff;padding:24px;text-align:center;margin-bottom:20px;}'
+    +'.cover-bar h1{color:#fff;font-size:26pt;margin:0;}.cover-bar p{color:#ddd;margin:4px 0;font-size:11pt;}'
+    +'.sig-line{border-top:1px solid #2c3e50;width:250px;display:inline-block;margin-top:30px;padding-top:4px;font-size:9pt;color:#666;}'
+    +'</style></head><body>'
+
+    // Cover
+    +'<div class="cover-bar"><h1>BUILDING FACADE<br>INSPECTION REPORT</h1><p>Swing Stage Field Assessment</p></div>'
+    +'<h1>'+(gv('projName')||'Untitled Project')+'</h1>'
+    +'<p style="font-size:11pt;color:#555;">Project #: '+(gv('projNum')||'N/A')+'<br>'
+    +[gv('bldgAddr'),gv('bldgCity'),gv('bldgState'),gv('bldgZip')].filter(Boolean).join(', ')+'</p>'
+
+    // Project Details
+    +'<h2>Project Details</h2>'
+    +'<table><tr><th colspan="2">PROJECT DETAILS</th></tr>'
+    +'<tr><td style="font-weight:bold;width:200px;">Building Type</td><td>'+gv('bldgType')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Construction Type</td><td>'+gv('constType')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Stories</td><td>'+gv('stories')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Year Built</td><td>'+gv('yearBuilt')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Total Units</td><td>'+gv('totalUnits')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Gross Area</td><td>'+gv('grossArea')+' SF</td></tr>'
+    +'<tr><td style="font-weight:bold;">Facade Area</td><td>'+gv('facadeArea')+' SF</td></tr></table>'
+
+    // Inspection Details
+    +'<table><tr><th colspan="2">INSPECTION DETAILS</th></tr>'
+    +'<tr><td style="font-weight:bold;width:200px;">Date</td><td>'+gv('inspDate')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Type</td><td>'+gv('inspType')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Weather</td><td>'+gv('weather')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Temperature</td><td>'+gv('temp')+'\u00b0F</td></tr>'
+    +'<tr><td style="font-weight:bold;">Inspector</td><td>'+gv('inspName')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">License #</td><td>'+gv('inspLicense')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Title</td><td>'+gv('inspTitle')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Company</td><td>'+gv('inspCompany')+'</td></tr></table>'
+
+    // Safety Checklist
+    +'<h2 style="page-break-before:always;">Safety Checklist &mdash; OSHA 29 CFR 1926.451/452</h2>'
+    +'<table><tr><th>Category</th><th>Item</th><th style="width:60px;text-align:center;">Status</th></tr>'
+    +safetyHTML+'</table>'
+
+    // Load Calculations
+    +'<h2>Load Calculations</h2>'
+    +'<table><tr><th colspan="2">LOAD CALCULATIONS</th></tr>'
+    +'<tr><td style="font-weight:bold;width:250px;">Platform Weight</td><td>'+gv('loadPlatform')+' lbs</td></tr>'
+    +'<tr><td style="font-weight:bold;">Number of Workers</td><td>'+gv('loadWorkers')+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Avg Worker Weight</td><td>'+gv('loadWorkerWt')+' lbs</td></tr>'
+    +'<tr><td style="font-weight:bold;">Tools &amp; Materials</td><td>'+gv('loadTools')+' lbs</td></tr>'
+    +'<tr><td style="font-weight:bold;">Total Suspended Load</td><td><strong>'+gv('loadTotal')+'</strong></td></tr>'
+    +'<tr><td style="font-weight:bold;">Required Rope Rating (6&times;)</td><td><strong>'+gv('loadRope')+'</strong></td></tr>'
+    +'<tr><td style="font-weight:bold;">Required Counterweight (4&times;)</td><td><strong>'+gv('loadCounter4')+'</strong></td></tr>'
+    +'<tr><td style="font-weight:bold;">Recommended Counterweight (7&times;)</td><td><strong>'+gv('loadCounter7')+'</strong></td></tr></table>'
+
+    // Deficiency Log
+    +'<h2 style="page-break-before:always;">Deficiency Log ('+deficiencies.length+' Items)</h2>'
+    +defHTML
+
+    // Photo Documentation
+    +(photos.length?'<h2 style="page-break-before:always;">Photo Documentation ('+photos.length+' Photos)</h2>'+photoHTML:'')
+
+    // Cost Summary
+    +'<h2 style="page-break-before:always;">Cost Estimate Summary</h2>'
+    +'<table><tr><th>Priority</th><th>Count</th><th style="text-align:right;">Estimated Cost</th></tr>'
+    +'<tr><td style="font-weight:bold;">Immediate (Severity 4-5)</td><td>'+deficiencies.filter(d=>d.severity>=4).length+'</td><td style="text-align:right;">$'+ic.toLocaleString()+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Near-Term (Severity 3)</td><td>'+deficiencies.filter(d=>d.severity===3).length+'</td><td style="text-align:right;">$'+nc.toLocaleString()+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Routine (Severity 1-2)</td><td>'+deficiencies.filter(d=>d.severity<=2).length+'</td><td style="text-align:right;">$'+rc.toLocaleString()+'</td></tr>'
+    +'<tr><td style="font-weight:bold;">Contingency (15%)</td><td></td><td style="text-align:right;">$'+cg.toLocaleString()+'</td></tr>'
+    +'<tr style="background:#1a5276;color:#fff;font-weight:bold;"><td>TOTAL ESTIMATED COST</td><td>'+deficiencies.length+'</td><td style="text-align:right;">$'+(tc+cg).toLocaleString()+'</td></tr></table>'
+
+    // Notes
+    +(gv('inspNotes')?'<h2>Inspector Notes &amp; Recommendations</h2><p>'+gv('inspNotes').replace(/\n/g,'<br>')+'</p>':'')
+
+    // Signature
+    +'<div style="margin-top:40px;">'
+    +'<div style="display:inline-block;margin-right:80px;"><div class="sig-line">'+(gv('inspSig')?'<em style="font-size:14pt;color:#2c3e50;">'+gv('inspSig')+'</em><br>':'')+'Inspector Signature</div></div>'
+    +'<div style="display:inline-block;"><div class="sig-line">'+(gv('inspDate')||new Date().toLocaleDateString())+'<br>Date</div></div>'
+    +'</div>'
+
+    +'</body></html>';
+
+  const blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Inspection_'+(gv('projNum')||'Report')+'_'+new Date().toISOString().slice(0,10)+'.doc';
+  a.click();URL.revokeObjectURL(url);
+  showToast('Word document exported');
 }
 
 // ============ HELPERS ============
