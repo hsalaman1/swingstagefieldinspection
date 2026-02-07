@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swing Stage Field Inspection App</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--primary:#1a5276;--primary-light:#2980b9;--accent:#e67e22;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;--bg:#f4f6f9;--card:#fff;--text:#2c3e50;--border:#dce1e8;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+.app-header{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;padding:16px 20px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.app-header h1{font-size:1.3rem;font-weight:700}.app-header p{font-size:.8rem;opacity:.85}
+.tab-bar{display:flex;background:#fff;border-bottom:2px solid var(--border);overflow-x:auto;position:sticky;top:72px;z-index:99}
+.tab{flex:1;min-width:0;padding:12px 8px;text-align:center;font-size:.75rem;font-weight:600;color:#7f8c8d;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);background:#eaf2f8}
+.tab:hover{background:#f0f3f6}
+.section{display:none;padding:16px;max-width:900px;margin:0 auto}
+.section.active{display:block}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);border:1px solid var(--border)}
+.card h3{font-size:1rem;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card h3 .icon{font-size:1.2rem}
+h2.section-title{font-size:1.15rem;color:var(--primary);margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--primary-light)}
+label{display:block;font-size:.82rem;font-weight:600;margin-bottom:4px;color:#555}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:.9rem;margin-bottom:10px;background:#fafbfc}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(41,128,185,.15)}
+textarea{resize:vertical;min-height:70px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:6px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-light)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#219a52}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{background:#a93226}
+.btn-warning{background:var(--warning);color:#fff}.btn-warning:hover{background:#d68910}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:#cf6d17}
+.btn-sm{padding:6px 12px;font-size:.78rem}
+.btn-block{width:100%;justify-content:center}
+.checklist-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #eee}
+.checklist-item:last-child{border:none}
+.checklist-item input[type=checkbox]{width:20px;height:20px;margin:0;flex-shrink:0;accent-color:var(--success)}
+.checklist-item .check-text{font-size:.88rem}
+.checklist-item .check-text.fail{color:var(--danger);font-weight:600}
+.severity-1{background:#dff9e8;border-left:4px solid var(--success)}
+.severity-2{background:#fef9e7;border-left:4px solid var(--warning)}
+.severity-3{background:#fdedec;border-left:4px solid var(--danger)}
+.severity-4{background:#f9e0e0;border-left:4px solid #922b21}
+.severity-5{background:#f5b7b1;border-left:4px solid #641e16}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:700;color:#fff}
+.badge-critical{background:#922b21}.badge-severe{background:var(--danger)}.badge-serious{background:var(--accent)}.badge-moderate{background:var(--warning)}.badge-minor{background:var(--success)}
+.deficiency-entry{border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;position:relative}
+.deficiency-entry .def-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:8px}
+.photo-thumb{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:2px solid var(--border);cursor:pointer}
+.photo-capture{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border);border-radius:6px;padding:20px;cursor:pointer;color:#999;transition:all .2s}
+.photo-capture:hover{border-color:var(--primary-light);color:var(--primary)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat-card{background:linear-gradient(135deg,#f8f9fa,#fff);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+.stat-card .stat-value{font-size:1.8rem;font-weight:800;color:var(--primary)}
+.stat-card .stat-label{font-size:.72rem;color:#999;text-transform:uppercase;letter-spacing:.5px}
+.progress-bar{height:8px;background:#ecf0f1;border-radius:4px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;background:var(--success);border-radius:4px;transition:width .3s}
+.empty-state{text-align:center;padding:40px 20px;color:#bbb}
+.empty-state .icon{font-size:3rem;margin-bottom:10px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#fff;border-radius:var(--radius);max-width:500px;width:100%;max-height:85vh;overflow-y:auto;padding:20px}
+.modal h3{margin-bottom:14px;color:var(--primary)}
+.hidden{display:none!important}
+.action-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2c3e50;color:#fff;padding:12px 24px;border-radius:8px;font-size:.85rem;z-index:300;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@media(max-width:600px){.row,.row3{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr 1fr}}
+.export-section{background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.export-section h3{color:#fff}
+.inspector-info{background:#eaf2f8;border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.markup-modal{max-width:95vw;max-height:95vh;width:auto;padding:10px}
+.markup-toolbar{display:flex;gap:4px;flex-wrap:wrap;padding:8px;background:#f0f3f6;border-radius:6px;margin-bottom:8px;align-items:center}
+.markup-toolbar .tool-btn{width:36px;height:36px;border:2px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .15s}
+.markup-toolbar .tool-btn.active{border-color:var(--primary);background:#eaf2f8;box-shadow:0 0 0 2px rgba(41,128,185,.3)}
+.markup-toolbar .tool-btn:hover{border-color:var(--primary-light)}
+.color-swatch{width:24px;height:24px;border-radius:50%;border:2px solid #ccc;cursor:pointer;transition:all .15s}
+.color-swatch.active{border-color:#333;box-shadow:0 0 0 2px rgba(0,0,0,.3)}
+.canvas-wrap{position:relative;display:inline-block;border:2px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;max-width:100%;cursor:crosshair}
+.canvas-wrap canvas{display:block;max-width:100%}
+.def-photo-preview{margin-top:8px;position:relative;display:inline-block}
+.def-photo-preview img{max-width:100%;max-height:200px;border-radius:6px;border:2px solid var(--border);cursor:pointer}
+.def-photo-badge{position:absolute;top:4px;right:4px;background:var(--primary);color:#fff;font-size:.65rem;padding:2px 6px;border-radius:10px}
+.stroke-size{width:50px;height:30px;padding:2px 6px;border:1px solid #ccc;border-radius:4px;font-size:.8rem;margin:0}
+.toolbar-divider{width:1px;height:28px;background:#ccc;margin:0 4px}
+</style>
+</head>
+<body>
+<div class="app-header">
+<h1>&#127959; Swing Stage Field Inspection</h1>
+<p>Building Facade Assessment Tool</p>
+</div>
+
+<div class="tab-bar" id="tabBar">
+<div class="tab active" data-tab="project" onclick="switchTab('project')">&#128203; Project</div>
+<div class="tab" data-tab="safety" onclick="switchTab('safety')">&#9888;&#65039; Safety</div>
+<div class="tab" data-tab="inspect" onclick="switchTab('inspect')">&#128269; Inspect</div>
+<div class="tab" data-tab="photos" onclick="switchTab('photos')">&#128248; Photos</div>
+<div class="tab" data-tab="report" onclick="switchTab('report')">&#128202; Report</div>
+</div>
+
+<!-- PROJECT INFO -->
+<div class="section active" id="sec-project">
+<h2 class="section-title">Project Information</h2>
+<div class="card">
+<h3><span class="icon">&#127970;</span> Building Details</h3>
+<div class="row"><div><label>Project Name</label><input type="text" id="projName" placeholder="e.g., 123 Ocean Blvd Condos"></div><div><label>Project Number</label><input type="text" id="projNum" placeholder="e.g., CE-2026-001"></div></div>
+<label>Building Address</label><input type="text" id="bldgAddr" placeholder="Full street address">
+<div class="row3"><div><label>City</label><input type="text" id="bldgCity" value="Miami"></div><div><label>State</label><input type="text" id="bldgState" value="FL"></div><div><label>ZIP</label><input type="text" id="bldgZip"></div></div>
+<div class="row"><div><label>Building Type</label><select id="bldgType"><option>Multi-Family Residential</option><option>Condominium</option><option>Cooperative</option><option>Mixed-Use</option><option>Commercial</option></select></div><div><label>Construction Type</label><select id="constType"><option>Reinforced Concrete</option><option>Structural Steel</option><option>Masonry Bearing Wall</option><option>Wood Frame</option><option>Pre-Cast Concrete</option></select></div></div>
+<div class="row3"><div><label>Stories</label><input type="number" id="stories" min="1" value="3"></div><div><label>Year Built</label><input type="number" id="yearBuilt" placeholder="e.g., 1985"></div><div><label>Total Units</label><input type="number" id="totalUnits" min="1"></div></div>
+<div class="row"><div><label>Gross Building Area (SF)</label><input type="number" id="grossArea"></div><div><label>Facade Area (SF)</label><input type="number" id="facadeArea"></div></div>
+</div>
+
+<div class="card">
+<h3><span class="icon">&#128119;</span> Inspection Details</h3>
+<div class="row"><div><label>Inspection Date</label><input type="date" id="inspDate"></div><div><label>Inspection Type</label><select id="inspType"><option>Facade Assessment</option><option>25-Year Milestone</option><option>30-Year Milestone</option><option>40-Year Recertification</option><option>Post-Storm</option><option>Periodic Maintenance</option></select></div></div>
+<div class="row"><div><label>Weather Conditions</label><select id="weather"><option>Clear / Sunny</option><option>Partly Cloudy</option><option>Overcast</option><option>Light Rain</option><option>Windy (>20 mph)</option></select></div><div><label>Temperature (&deg;F)</label><input type="number" id="temp" placeholder="e.g., 82"></div></div>
+</div>
+
+<div class="card">
+<h3><span class="icon">&#128295;</span> Inspector Information</h3>
+<div class="row"><div><label>Inspector Name</label><input type="text" id="inspName"></div><div><label>License/Certification #</label><input type="text" id="inspLicense"></div></div>
+<div class="row"><div><label>Title</label><select id="inspTitle"><option>Professional Engineer (PE)</option><option>Registered Architect (RA)</option><option>Special Inspector</option><option>Building Inspector</option></select></div><div><label>Company</label><input type="text" id="inspCompany"></div></div>
+<label>Inspector Signature (Type name)</label><input type="text" id="inspSig" placeholder="Type full name as electronic signature">
+</div>
+</div>
+
+<!-- SAFETY CHECKLIST -->
+<div class="section" id="sec-safety">
+<h2 class="section-title">Swing Stage Safety Checklist</h2>
+<div class="card">
+<h3><span class="icon">&#128203;</span> Pre-Use Inspection &mdash; OSHA 29 CFR 1926.451/452</h3>
+<p style="font-size:.8rem;color:#777;margin-bottom:12px">All items must be checked before each use. Failed items require immediate correction.</p>
+<div id="safetyChecklist"></div>
+</div>
+<div class="card">
+<h3><span class="icon">&#9878;&#65039;</span> Load Calculations</h3>
+<div class="row"><div><label>Platform Weight (lbs)</label><input type="number" id="loadPlatform" value="0" oninput="calcLoad()"></div><div><label>Number of Workers</label><input type="number" id="loadWorkers" value="2" oninput="calcLoad()"></div></div>
+<div class="row"><div><label>Avg Worker Weight (lbs)</label><input type="number" id="loadWorkerWt" value="250" oninput="calcLoad()"></div><div><label>Tools &amp; Materials (lbs)</label><input type="number" id="loadTools" value="100" oninput="calcLoad()"></div></div>
+<div class="row"><div><label>Total Suspended Load</label><input type="text" id="loadTotal" readonly style="font-weight:700;background:#eaf2f8"></div><div><label>Required Rope Rating (6&times; Safety)</label><input type="text" id="loadRope" readonly style="font-weight:700;background:#eaf2f8"></div></div>
+<div class="row"><div><label>Required Counterweight (4&times;)</label><input type="text" id="loadCounter4" readonly style="font-weight:700;background:#fef9e7"></div><div><label>Recommended Counterweight (7&times;)</label><input type="text" id="loadCounter7" readonly style="font-weight:700;background:#fdedec"></div></div>
+</div>
+</div>
+
+<!-- INSPECTION -->
+<div class="section" id="sec-inspect">
+<h2 class="section-title">Facade Deficiency Log</h2>
+<div class="action-bar" style="margin-bottom:14px">
+<button class="btn btn-primary" onclick="openDeficiencyModal()">+ Add Deficiency</button>
+<button class="btn btn-accent" onclick="openQuickAdd()">&#9889; Quick Add</button>
+</div>
+<div id="deficiencyList"></div>
+<div class="empty-state" id="emptyDeficiency"><div class="icon">&#128269;</div><p>No deficiencies logged yet.<br>Tap "Add Deficiency" to begin.</p></div>
+</div>
+
+<!-- PHOTOS -->
+<div class="section" id="sec-photos">
+<h2 class="section-title">Photo Documentation</h2>
+<div class="card">
+<label>Capture Photo</label>
+<input type="file" id="photoInput" accept="image/*" capture="environment" multiple onchange="handlePhotos(event)" style="margin-bottom:10px">
+<div class="row"><div><label>Elevation</label><select id="photoElev"><option>North</option><option>South</option><option>East</option><option>West</option><option>Roof</option><option>Interior</option></select></div><div><label>Photo Type</label><select id="photoType"><option>Overview</option><option>Detail</option><option>Reference</option><option>Baseline</option></select></div></div>
+<label>Photo Notes</label><input type="text" id="photoNotes" placeholder="Describe what is shown in this photo">
+<label>Link to Deficiency ID (optional)</label><select id="photoDefLink"><option value="">-- None --</option></select>
+</div>
+<div class="card">
+<h3><span class="icon">&#128444;&#65039;</span> Photo Log (<span id="photoCount">0</span> photos)</h3>
+<div class="photo-grid" id="photoGrid"></div>
+<div class="empty-state" id="emptyPhotos"><div class="icon">&#128247;</div><p>No photos captured yet.</p></div>
+</div>
+</div>
+
+<!-- REPORT -->
+<div class="section" id="sec-report">
+<h2 class="section-title">Inspection Summary &amp; Export</h2>
+<div class="export-section">
+<h3>&#128229; Export Options</h3>
+<p style="font-size:.85rem;margin-bottom:12px">Generate comprehensive reports for submittal and documentation.</p>
+<div class="action-bar">
+<button class="btn btn-warning" onclick="exportExcel()">&#128202; Export to Excel</button>
+<button class="btn btn-success" onclick="exportJSON()">&#128190; Save Project (JSON)</button>
+<button class="btn btn-accent" onclick="loadJSON()">&#128194; Load Project</button>
+</div>
+<input type="file" id="jsonLoader" accept=".json" class="hidden" onchange="handleLoadJSON(event)">
+</div>
+
+<div class="stats-grid" id="statsGrid">
+<div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Deficiencies</div></div>
+<div class="stat-card"><div class="stat-value" id="statCritical">0</div><div class="stat-label">Critical/Severe</div></div>
+<div class="stat-card"><div class="stat-value" id="statPhotos">0</div><div class="stat-label">Photos Taken</div></div>
+<div class="stat-card"><div class="stat-value" id="statSafety">0%</div><div class="stat-label">Safety Checklist</div></div>
+</div>
+
+<div class="card">
+<h3><span class="icon">&#128202;</span> Deficiency Summary by Elevation</h3>
+<div id="elevSummary"></div>
+</div>
+
+<div class="card">
+<h3><span class="icon">&#128176;</span> Cost Estimate Summary</h3>
+<div id="costSummary"></div>
+</div>
+
+<div class="card">
+<h3><span class="icon">&#128221;</span> Inspector Notes &amp; Recommendations</h3>
+<textarea id="inspNotes" rows="6" placeholder="Enter overall assessment notes, recommendations, and required follow-up actions..."></textarea>
+</div>
+</div>
+
+<!-- DEFICIENCY MODAL -->
+<div class="modal-overlay hidden" id="defModal">
+<div class="modal">
+<h3>&#128221; Log Deficiency</h3>
+<div class="row"><div><label>Elevation</label><select id="defElev"><option>North</option><option>South</option><option>East</option><option>West</option><option>Roof</option></select></div><div><label>Bay / Grid</label><input type="text" id="defBay" placeholder="e.g., Bay 3"></div></div>
+<div class="row"><div><label>Floor / Level</label><input type="text" id="defFloor" placeholder="e.g., Level 4"></div><div><label>Height Above Grade (ft)</label><input type="number" id="defHeight"></div></div>
+<label>Component</label>
+<select id="defComponent"><option>Concrete - Spalling</option><option>Concrete - Cracking</option><option>Concrete - Delamination</option><option>Concrete - Efflorescence</option><option>Concrete - Rebar Exposure</option><option>Masonry - Mortar Deterioration</option><option>Masonry - Brick Deterioration</option><option>Masonry - Water Infiltration</option><option>Stucco/EIFS - Delamination</option><option>Stucco/EIFS - Moisture Intrusion</option><option>Stucco/EIFS - Fastener Corrosion</option><option>Window - Sealant Failure</option><option>Window - Frame Corrosion</option><option>Window - Glazing Failure</option><option>Door - Sealant Failure</option><option>Door - Frame Corrosion</option><option>Waterproofing - Sealant Degradation</option><option>Waterproofing - Membrane Failure</option><option>Balcony - Railing Corrosion</option><option>Balcony - Structural Deterioration</option><option>Balcony - Waterproofing Failure</option><option>Parapet - Cap Deterioration</option><option>Parapet - Flashing Failure</option><option>MEP Penetration - Sealant Failure</option><option>Roof Edge - Flashing</option><option>Other</option></select>
+<label>Severity</label>
+<select id="defSeverity"><option value="1">1 - Minor (Cosmetic)</option><option value="2">2 - Moderate (1-3 year repair)</option><option value="3" selected>3 - Serious (6-12 month repair)</option><option value="4">4 - Severe (Immediate repair)</option><option value="5">5 - Critical (Life Safety)</option></select>
+<div class="row3"><div><label>Quantity</label><input type="number" id="defQty" step="0.1" value="1"></div><div><label>Unit</label><select id="defUnit"><option>SF</option><option>LF</option><option>Each</option><option>% Area</option></select></div><div><label>Est. Unit Cost ($)</label><input type="number" id="defCost" step="0.01" placeholder="e.g., 45.00"></div></div>
+<label>Description</label><textarea id="defDesc" placeholder="Describe the deficiency in detail..."></textarea>
+<label>Recommended Action</label><textarea id="defAction" placeholder="Recommended repair approach..."></textarea>
+<label>Attach Photo</label>
+<input type="file" id="defPhotoInput" accept="image/*" capture="environment" onchange="handleDefPhoto(event)" style="margin-bottom:4px">
+<div id="defPhotoPreview" style="margin-bottom:10px"></div>
+<div class="action-bar" style="justify-content:flex-end;margin-top:14px">
+<button class="btn btn-danger btn-sm" onclick="closeDefModal()">Cancel</button>
+<button class="btn btn-success" onclick="saveDeficiency()">Save Deficiency</button>
+</div>
+</div>
+</div>
+
+<!-- QUICK ADD MODAL -->
+<div class="modal-overlay hidden" id="quickModal">
+<div class="modal">
+<h3>&#9889; Quick Add Common Deficiencies</h3>
+<p style="font-size:.82rem;color:#777;margin-bottom:12px">Tap items to add to log with default values. Edit after adding.</p>
+<div id="quickItems"></div>
+<button class="btn btn-danger btn-block" style="margin-top:14px" onclick="closeQuickAdd()">Close</button>
+</div>
+</div>
+
+<!-- PHOTO MARKUP MODAL -->
+<div class="modal-overlay hidden" id="markupModal">
+<div class="modal markup-modal">
+<h3 id="markupTitle">&#128248; Mark Up Photo</h3>
+<div class="markup-toolbar" id="markupToolbar">
+<button class="tool-btn active" data-tool="freehand" title="Freehand Draw">&#9999;&#65039;</button>
+<button class="tool-btn" data-tool="circle" title="Circle">&#11093;</button>
+<button class="tool-btn" data-tool="rect" title="Rectangle">&#11036;</button>
+<button class="tool-btn" data-tool="arrow" title="Arrow">&#10145;&#65039;</button>
+<button class="tool-btn" data-tool="text" title="Add Text Label">&#128292;</button>
+<div class="toolbar-divider"></div>
+<div class="color-swatch active" data-color="#e74c3c" style="background:#e74c3c" title="Red"></div>
+<div class="color-swatch" data-color="#f39c12" style="background:#f39c12" title="Yellow"></div>
+<div class="color-swatch" data-color="#2980b9" style="background:#2980b9" title="Blue"></div>
+<div class="color-swatch" data-color="#27ae60" style="background:#27ae60" title="Green"></div>
+<div class="color-swatch" data-color="#ffffff" style="background:#fff" title="White"></div>
+<div class="toolbar-divider"></div>
+<label style="font-size:.7rem;margin:0;color:#666">Size</label>
+<input type="range" min="2" max="12" value="4" id="strokeSize" style="width:60px;margin:0;padding:0">
+<div class="toolbar-divider"></div>
+<button class="tool-btn" onclick="undoMarkup()" title="Undo">&#8617;&#65039;</button>
+<button class="tool-btn" onclick="clearMarkup()" title="Clear All">&#128465;&#65039;</button>
+</div>
+<div class="canvas-wrap" id="canvasWrap">
+<canvas id="markupCanvas"></canvas>
+</div>
+<div class="action-bar" style="justify-content:flex-end;margin-top:10px">
+<button class="btn btn-danger btn-sm" onclick="closeMarkup()">Cancel</button>
+<button class="btn btn-success" onclick="saveMarkup()">Save Markup</button>
+</div>
+</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<script>
+// ============ STATE ============
+let deficiencies = [];
+let photos = [];
+let defIdCounter = 1;
+let photoIdCounter = 1;
+let editingDefId = null;
+let markupDefId = null;
+let tempDefPhoto = null;
+let markupCtx = null;
+let markupImg = null;
+let markupTool = 'freehand';
+let markupColor = '#e74c3c';
+let markupStroke = 4;
+let isDrawing = false;
+let drawStart = null;
+let markupHistory = [];
+let markupBaseData = null;
+
+const SAFETY_ITEMS = [
+  {cat:"Suspension Ropes & Cables",items:["All ropes inspected for broken wires, kinks, frays","Ropes have minimum 6\u00d7 safety factor for max load","Ropes shielded from heat/acid/corrosion","Wire rope end connections properly installed"]},
+  {cat:"Platform",items:["Platform securely fastened to hangers with U-bolts","Platform level within 1 degree","No bent, twisted, or damaged beams","Platform decking intact, no loose boards","Platform width \u226436 inches or engineered for wider"]},
+  {cat:"Outriggers & Roof Anchoring",items:["Outrigger extension and angle per design","All connection points to building verified","Roof deck can support loads","Parapet clearance adequate"]},
+  {cat:"Counterweights",items:["Counterweight ratio minimum 4\u00d7 suspended load","Manufactured blocks or engineered materials used (no sandbags)","Mechanical restraints prevent sliding","Counterweights free of rust/deterioration"]},
+  {cat:"Hoist Mechanisms",items:["Hoists tested by qualified lab","Smooth operation verified","Sheaves free of damage/wear","Emergency descent controls functional","Load capacity clearly marked"]},
+  {cat:"Fall Protection",items:["Full-body harness for each worker","Independent lifeline for each worker","Guardrails 42\" \u00b13\" height installed","Guardrails rated 200 lb force","Mid-rails and toe boards installed"]},
+  {cat:"General Safety",items:["Competent person on site","All workers trained per OSHA 1926.454","Two-way communication operational","Weather conditions acceptable","Area below barricaded/signage posted","Emergency rescue plan in place"]}
+];
+
+const QUICK_DEFICIENCIES = [
+  {component:"Concrete - Spalling",severity:3,unit:"SF",cost:55,desc:"Concrete spalling with exposed aggregate"},
+  {component:"Concrete - Cracking",severity:2,unit:"LF",cost:25,desc:"Hairline to moderate cracking in concrete"},
+  {component:"Concrete - Rebar Exposure",severity:4,unit:"SF",cost:85,desc:"Exposed reinforcing steel with section loss"},
+  {component:"Masonry - Mortar Deterioration",severity:2,unit:"LF",cost:35,desc:"Mortar joint deterioration requiring repointing"},
+  {component:"Stucco/EIFS - Delamination",severity:3,unit:"SF",cost:45,desc:"Stucco delamination from substrate"},
+  {component:"Window - Sealant Failure",severity:2,unit:"LF",cost:18,desc:"Perimeter sealant cracked/missing at window frame"},
+  {component:"Balcony - Railing Corrosion",severity:3,unit:"Each",cost:350,desc:"Balcony railing showing significant corrosion"},
+  {component:"Waterproofing - Sealant Degradation",severity:2,unit:"LF",cost:22,desc:"Exterior joint sealant degraded/failing"},
+  {component:"Balcony - Waterproofing Failure",severity:3,unit:"SF",cost:65,desc:"Balcony deck waterproofing membrane failing"},
+  {component:"Parapet - Cap Deterioration",severity:2,unit:"LF",cost:40,desc:"Parapet cap cracked or displaced"}
+];
+
+// ============ TAB NAVIGATION ============
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelector(`[data-tab="${id}"]`).classList.add('active');
+  document.getElementById(`sec-${id}`).classList.add('active');
+  if(id==='report') updateReport();
+}
+
+// ============ SAFETY CHECKLIST ============
+function buildSafetyChecklist(){
+  const el=document.getElementById('safetyChecklist');
+  let html='';
+  SAFETY_ITEMS.forEach((cat,ci)=>{
+    html+=`<h4 style="margin:14px 0 6px;color:var(--primary);font-size:.9rem">${cat.cat}</h4>`;
+    cat.items.forEach((item,ii)=>{
+      html+=`<div class="checklist-item"><input type="checkbox" id="sc_${ci}_${ii}" onchange="updateSafetyProgress()"><label for="sc_${ci}_${ii}" class="check-text">${item}</label></div>`;
+    });
+  });
+  el.innerHTML=html;
+}
+
+function updateSafetyProgress(){
+  const total=document.querySelectorAll('#safetyChecklist input[type=checkbox]').length;
+  const checked=document.querySelectorAll('#safetyChecklist input[type=checkbox]:checked').length;
+  const pct=total?Math.round(checked/total*100):0;
+  document.getElementById('statSafety').textContent=pct+'%';
+}
+
+function calcLoad(){
+  const plat=+(document.getElementById('loadPlatform').value)||0;
+  const workers=+(document.getElementById('loadWorkers').value)||0;
+  const ww=+(document.getElementById('loadWorkerWt').value)||0;
+  const tools=+(document.getElementById('loadTools').value)||0;
+  const total=plat+(workers*ww)+tools;
+  document.getElementById('loadTotal').value=total.toLocaleString()+' lbs';
+  document.getElementById('loadRope').value=(total*6).toLocaleString()+' lbs';
+  document.getElementById('loadCounter4').value=(total*4).toLocaleString()+' lbs';
+  document.getElementById('loadCounter7').value=(total*7).toLocaleString()+' lbs';
+}
+
+// ============ DEFICIENCY MANAGEMENT ============
+function openDeficiencyModal(){
+  editingDefId=null;
+  document.querySelector('#defModal h3').textContent='\u{1F4DD} Log Deficiency';
+  document.getElementById('defModal').classList.remove('hidden');
+}
+function closeDefModal(){document.getElementById('defModal').classList.add('hidden');editingDefId=null;clearDefForm()}
+function clearDefForm(){['defBay','defFloor','defHeight','defQty','defDesc','defAction','defCost'].forEach(id=>{const el=document.getElementById(id);el.value=id==='defQty'?'1':''});document.getElementById('defSeverity').value='3';document.getElementById('defElev').value='North';document.getElementById('defComponent').selectedIndex=0;document.getElementById('defUnit').value='SF';tempDefPhoto=null;document.getElementById('defPhotoPreview').innerHTML='';document.getElementById('defPhotoInput').value=''}
+
+function handleDefPhoto(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    tempDefPhoto=ev.target.result;
+    document.getElementById('defPhotoPreview').innerHTML=`<div class="def-photo-preview"><img src="${tempDefPhoto}" style="max-height:150px"><br><span style="font-size:.75rem;color:#777">Photo attached. You can mark it up after saving.</span></div>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function editDeficiency(id){
+  const d=deficiencies.find(x=>x.id===id);
+  if(!d)return;
+  editingDefId=id;
+  document.getElementById('defElev').value=d.elevation;
+  document.getElementById('defBay').value=d.bay;
+  document.getElementById('defFloor').value=d.floor;
+  document.getElementById('defHeight').value=d.height;
+  document.getElementById('defComponent').value=d.component;
+  document.getElementById('defSeverity').value=d.severity;
+  document.getElementById('defQty').value=d.qty;
+  document.getElementById('defUnit').value=d.unit;
+  document.getElementById('defCost').value=d.unitCost||'';
+  document.getElementById('defDesc').value=d.desc;
+  document.getElementById('defAction').value=d.action;
+  tempDefPhoto=d.photo||null;
+  const preview=document.getElementById('defPhotoPreview');
+  if(d.photo||d.annotatedPhoto){
+    const showImg=d.annotatedPhoto||d.photo;
+    preview.innerHTML=`<div class="def-photo-preview"><img src="${showImg}" style="max-height:150px"><div class="def-photo-badge">${d.annotatedPhoto?'Marked Up':'Attached'}</div></div>`;
+  }else{preview.innerHTML=''}
+  document.querySelector('#defModal h3').textContent='\u270F\uFE0F Edit Deficiency \u2014 '+id;
+  document.getElementById('defModal').classList.remove('hidden');
+}
+
+function saveDeficiency(){
+  if(editingDefId){
+    const d=deficiencies.find(x=>x.id===editingDefId);
+    if(d){
+      d.elevation=document.getElementById('defElev').value;
+      d.bay=document.getElementById('defBay').value;
+      d.floor=document.getElementById('defFloor').value;
+      d.height=document.getElementById('defHeight').value;
+      d.component=document.getElementById('defComponent').value;
+      d.severity=+document.getElementById('defSeverity').value;
+      d.qty=+document.getElementById('defQty').value;
+      d.unit=document.getElementById('defUnit').value;
+      d.unitCost=+(document.getElementById('defCost').value)||0;
+      d.desc=document.getElementById('defDesc').value;
+      d.action=document.getElementById('defAction').value;
+      d.totalCost=d.qty*d.unitCost;
+      d.lastModified=new Date().toISOString();
+      if(tempDefPhoto){d.photo=tempDefPhoto;d.annotatedPhoto=null}
+    }
+    renderDeficiencies();
+    updatePhotoDefLinks();
+    closeDefModal();
+    showToast(`${editingDefId} updated`);
+    return;
+  }
+  const d={
+    id:'DEF-'+String(defIdCounter++).padStart(3,'0'),
+    elevation:document.getElementById('defElev').value,
+    bay:document.getElementById('defBay').value,
+    floor:document.getElementById('defFloor').value,
+    height:document.getElementById('defHeight').value,
+    component:document.getElementById('defComponent').value,
+    severity:+document.getElementById('defSeverity').value,
+    qty:+document.getElementById('defQty').value,
+    unit:document.getElementById('defUnit').value,
+    unitCost:+(document.getElementById('defCost').value)||0,
+    desc:document.getElementById('defDesc').value,
+    action:document.getElementById('defAction').value,
+    photo:tempDefPhoto||null,
+    annotatedPhoto:null,
+    timestamp:new Date().toISOString()
+  };
+  d.totalCost=d.qty*d.unitCost;
+  deficiencies.push(d);
+  renderDeficiencies();
+  updatePhotoDefLinks();
+  closeDefModal();
+  showToast(`${d.id} added: ${d.component}`);
+}
+
+function deleteDeficiency(id){
+  deficiencies=deficiencies.filter(d=>d.id!==id);
+  renderDeficiencies();
+  updatePhotoDefLinks();
+}
+
+function renderDeficiencies(){
+  const el=document.getElementById('deficiencyList');
+  const empty=document.getElementById('emptyDeficiency');
+  if(!deficiencies.length){el.innerHTML='';empty.classList.remove('hidden');return}
+  empty.classList.add('hidden');
+  const severityLabels={1:'Minor',2:'Moderate',3:'Serious',4:'Severe',5:'Critical'};
+  const badgeClass={1:'badge-minor',2:'badge-moderate',3:'badge-serious',4:'badge-severe',5:'badge-critical'};
+  el.innerHTML=deficiencies.map(d=>`
+    <div class="deficiency-entry severity-${d.severity}">
+      <div class="def-header">
+        <strong>${d.id}</strong>
+        <span class="badge ${badgeClass[d.severity]}">${severityLabels[d.severity]}</span>
+      </div>
+      <div style="font-weight:600;margin-bottom:4px">${d.component}</div>
+      <div style="font-size:.82rem;color:#666">${d.elevation} Elev${d.bay?' | '+d.bay:''}${d.floor?' | '+d.floor:''}${d.height?' | '+d.height+'ft AG':''}</div>
+      <div style="font-size:.82rem;margin-top:4px">${d.desc||'<em>No description</em>'}</div>
+      <div style="display:flex;gap:16px;margin-top:8px;font-size:.8rem;color:#555">
+        <span>\u{1F4CF} ${d.qty} ${d.unit}</span>
+        ${d.unitCost?`<span>\u{1F4B5} $${d.unitCost}/${d.unit}</span><span>\u{1F4B0} Total: $${d.totalCost.toLocaleString()}</span>`:''}
+      </div>
+      ${d.action?`<div style="font-size:.8rem;margin-top:4px;color:var(--primary)">\u{1F527} ${d.action}</div>`:''}
+      ${d.photo?`<div class="def-photo-preview" style="margin-top:8px">
+        <img src="${d.annotatedPhoto||d.photo}" onclick="openMarkup('${d.id}')" title="Tap to mark up">
+        <div class="def-photo-badge">${d.annotatedPhoto?'Marked Up':'Tap to mark up'}</div>
+      </div>`:''}
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="editDeficiency('${d.id}')">\u270F\uFE0F Edit</button>
+        ${d.photo?`<button class="btn btn-warning btn-sm" onclick="openMarkup('${d.id}')">\u{1F58A}\uFE0F Mark Up</button>`:`<button class="btn btn-accent btn-sm" onclick="attachPhotoToDef('${d.id}')">\u{1F4F7} Add Photo</button>`}
+        <button class="btn btn-danger btn-sm" onclick="deleteDeficiency('${d.id}')">\u{1F5D1}\uFE0F Remove</button>
+      </div>
+    </div>`).join('');
+}
+
+// ============ PHOTO ATTACH SHORTCUT ============
+function attachPhotoToDef(id){
+  const input=document.createElement('input');
+  input.type='file';input.accept='image/*';input.capture='environment';
+  input.onchange=function(e){
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      const d=deficiencies.find(x=>x.id===id);
+      if(d){d.photo=ev.target.result;d.annotatedPhoto=null;renderDeficiencies();showToast(`Photo attached to ${id}`)}
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+// ============ PHOTO MARKUP ENGINE ============
+function openMarkup(id){
+  const d=deficiencies.find(x=>x.id===id);
+  if(!d||!d.photo)return;
+  markupDefId=id;
+  markupHistory=[];
+  document.getElementById('markupTitle').textContent='\u{1F4F8} Mark Up Photo \u2014 '+id;
+  document.getElementById('markupModal').classList.remove('hidden');
+  const canvas=document.getElementById('markupCanvas');
+  markupCtx=canvas.getContext('2d');
+  markupImg=new Image();
+  markupImg.onload=function(){
+    const maxW=Math.min(window.innerWidth-60,800);
+    const scale=Math.min(maxW/markupImg.width,1);
+    canvas.width=Math.round(markupImg.width*scale);
+    canvas.height=Math.round(markupImg.height*scale);
+    markupCtx.drawImage(markupImg,0,0,canvas.width,canvas.height);
+    if(d.annotatedPhoto){
+      const annImg=new Image();
+      annImg.onload=function(){markupCtx.drawImage(annImg,0,0,canvas.width,canvas.height);saveSnapshot()};
+      annImg.src=d.annotatedPhoto;
+    }else{saveSnapshot()}
+  };
+  markupImg.src=d.photo;
+  initMarkupToolbar();
+}
+
+function initMarkupToolbar(){
+  document.querySelectorAll('#markupToolbar .tool-btn[data-tool]').forEach(btn=>{
+    btn.onclick=function(){
+      document.querySelectorAll('#markupToolbar .tool-btn[data-tool]').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+      markupTool=this.dataset.tool;
+    };
+  });
+  document.querySelectorAll('#markupToolbar .color-swatch').forEach(sw=>{
+    sw.onclick=function(){
+      document.querySelectorAll('#markupToolbar .color-swatch').forEach(s=>s.classList.remove('active'));
+      this.classList.add('active');
+      markupColor=this.dataset.color;
+    };
+  });
+  document.getElementById('strokeSize').oninput=function(){markupStroke=+this.value};
+  const canvas=document.getElementById('markupCanvas');
+  canvas.onpointerdown=startDraw;
+  canvas.onpointermove=moveDraw;
+  canvas.onpointerup=endDraw;
+  canvas.onpointerleave=endDraw;
+}
+
+function getCanvasPos(e){
+  const r=document.getElementById('markupCanvas').getBoundingClientRect();
+  return{x:e.clientX-r.left,y:e.clientY-r.top};
+}
+
+function saveSnapshot(){
+  markupBaseData=markupCtx.getImageData(0,0,document.getElementById('markupCanvas').width,document.getElementById('markupCanvas').height);
+}
+
+function startDraw(e){
+  e.preventDefault();
+  isDrawing=true;
+  drawStart=getCanvasPos(e);
+  if(markupTool==='freehand'){
+    markupHistory.push(markupCtx.getImageData(0,0,document.getElementById('markupCanvas').width,document.getElementById('markupCanvas').height));
+    markupCtx.beginPath();
+    markupCtx.moveTo(drawStart.x,drawStart.y);
+    markupCtx.strokeStyle=markupColor;
+    markupCtx.lineWidth=markupStroke;
+    markupCtx.lineCap='round';
+    markupCtx.lineJoin='round';
+  }else if(markupTool==='text'){
+    isDrawing=false;
+    const txt=prompt('Enter label text:');
+    if(txt){
+      markupHistory.push(markupCtx.getImageData(0,0,document.getElementById('markupCanvas').width,document.getElementById('markupCanvas').height));
+      const fontSize=Math.max(14,markupStroke*4);
+      markupCtx.font=`bold ${fontSize}px Arial`;
+      markupCtx.fillStyle=markupColor;
+      markupCtx.strokeStyle=markupColor==='#ffffff'?'#000':'#fff';
+      markupCtx.lineWidth=2;
+      markupCtx.strokeText(txt,drawStart.x,drawStart.y);
+      markupCtx.fillText(txt,drawStart.x,drawStart.y);
+    }
+  }else{
+    markupHistory.push(markupCtx.getImageData(0,0,document.getElementById('markupCanvas').width,document.getElementById('markupCanvas').height));
+    saveSnapshot();
+  }
+}
+
+function moveDraw(e){
+  if(!isDrawing)return;
+  e.preventDefault();
+  const pos=getCanvasPos(e);
+  if(markupTool==='freehand'){
+    markupCtx.lineTo(pos.x,pos.y);
+    markupCtx.stroke();
+  }else if(markupTool!=='text'){
+    markupCtx.putImageData(markupBaseData,0,0);
+    markupCtx.strokeStyle=markupColor;
+    markupCtx.lineWidth=markupStroke;
+    markupCtx.lineCap='round';
+    const dx=pos.x-drawStart.x,dy=pos.y-drawStart.y;
+    if(markupTool==='circle'){
+      const rx=Math.abs(dx)/2,ry=Math.abs(dy)/2;
+      const cx=drawStart.x+dx/2,cy=drawStart.y+dy/2;
+      markupCtx.beginPath();
+      markupCtx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+      markupCtx.stroke();
+    }else if(markupTool==='rect'){
+      markupCtx.strokeRect(drawStart.x,drawStart.y,dx,dy);
+    }else if(markupTool==='arrow'){
+      const angle=Math.atan2(dy,dx);
+      const len=Math.sqrt(dx*dx+dy*dy);
+      const headLen=Math.min(20,len*.3);
+      markupCtx.beginPath();
+      markupCtx.moveTo(drawStart.x,drawStart.y);
+      markupCtx.lineTo(pos.x,pos.y);
+      markupCtx.stroke();
+      markupCtx.beginPath();
+      markupCtx.moveTo(pos.x,pos.y);
+      markupCtx.lineTo(pos.x-headLen*Math.cos(angle-Math.PI/6),pos.y-headLen*Math.sin(angle-Math.PI/6));
+      markupCtx.moveTo(pos.x,pos.y);
+      markupCtx.lineTo(pos.x-headLen*Math.cos(angle+Math.PI/6),pos.y-headLen*Math.sin(angle+Math.PI/6));
+      markupCtx.stroke();
+    }
+  }
+}
+
+function endDraw(e){
+  if(!isDrawing)return;
+  isDrawing=false;
+  if(markupTool==='freehand'){markupCtx.closePath()}
+}
+
+function undoMarkup(){
+  if(markupHistory.length){
+    markupCtx.putImageData(markupHistory.pop(),0,0);
+    saveSnapshot();
+  }
+}
+
+function clearMarkup(){
+  if(!markupImg)return;
+  markupHistory.push(markupCtx.getImageData(0,0,document.getElementById('markupCanvas').width,document.getElementById('markupCanvas').height));
+  const canvas=document.getElementById('markupCanvas');
+  markupCtx.drawImage(markupImg,0,0,canvas.width,canvas.height);
+  saveSnapshot();
+}
+
+function saveMarkup(){
+  const d=deficiencies.find(x=>x.id===markupDefId);
+  if(!d)return;
+  d.annotatedPhoto=document.getElementById('markupCanvas').toDataURL('image/png');
+  renderDeficiencies();
+  closeMarkup();
+  showToast(`Markup saved for ${markupDefId}`);
+}
+
+function closeMarkup(){
+  document.getElementById('markupModal').classList.add('hidden');
+  markupDefId=null;markupHistory=[];markupBaseData=null;
+}
+
+// ============ QUICK ADD ============
+function openQuickAdd(){
+  const el=document.getElementById('quickItems');
+  el.innerHTML=QUICK_DEFICIENCIES.map((q,i)=>`
+    <div class="checklist-item" style="cursor:pointer" onclick="quickAddDef(${i})">
+      <span style="font-size:1.2rem">\u2795</span>
+      <div><div style="font-weight:600;font-size:.85rem">${q.component}</div>
+      <div style="font-size:.78rem;color:#777">${q.desc} | $${q.cost}/${q.unit}</div></div>
+    </div>`).join('');
+  document.getElementById('quickModal').classList.remove('hidden');
+}
+function closeQuickAdd(){document.getElementById('quickModal').classList.add('hidden')}
+function quickAddDef(i){
+  const q=QUICK_DEFICIENCIES[i];
+  const d={id:'DEF-'+String(defIdCounter++).padStart(3,'0'),elevation:'North',bay:'',floor:'',height:'',component:q.component,severity:q.severity,qty:1,unit:q.unit,unitCost:q.cost,desc:q.desc,action:'',timestamp:new Date().toISOString()};
+  d.totalCost=d.qty*d.unitCost;
+  deficiencies.push(d);
+  renderDeficiencies();
+  updatePhotoDefLinks();
+  showToast(`Quick added: ${d.id} - ${d.component}`);
+}
+
+// ============ PHOTOS ============
+function handlePhotos(e){
+  const files=e.target.files;
+  Array.from(files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      const photo={
+        id:'P-'+String(photoIdCounter++).padStart(3,'0'),
+        elevation:document.getElementById('photoElev').value,
+        type:document.getElementById('photoType').value,
+        notes:document.getElementById('photoNotes').value,
+        defLink:document.getElementById('photoDefLink').value,
+        data:ev.target.result,
+        filename:file.name,
+        timestamp:new Date().toISOString()
+      };
+      photos.push(photo);
+      renderPhotos();
+      document.getElementById('photoNotes').value='';
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value='';
+}
+
+function renderPhotos(){
+  const grid=document.getElementById('photoGrid');
+  const empty=document.getElementById('emptyPhotos');
+  document.getElementById('photoCount').textContent=photos.length;
+  if(!photos.length){grid.innerHTML='';empty.classList.remove('hidden');return}
+  empty.classList.add('hidden');
+  grid.innerHTML=photos.map(p=>`
+    <div style="position:relative">
+      <img src="${p.data}" class="photo-thumb" title="${p.id}: ${p.elevation} - ${p.type}\n${p.notes}">
+      <div style="font-size:.65rem;text-align:center;margin-top:2px;color:#777">${p.id}</div>
+    </div>`).join('');
+}
+
+function updatePhotoDefLinks(){
+  const sel=document.getElementById('photoDefLink');
+  sel.innerHTML='<option value="">-- None --</option>'+deficiencies.map(d=>`<option value="${d.id}">${d.id}: ${d.component}</option>`).join('');
+}
+
+// ============ REPORT ============
+function updateReport(){
+  document.getElementById('statTotal').textContent=deficiencies.length;
+  document.getElementById('statCritical').textContent=deficiencies.filter(d=>d.severity>=4).length;
+  document.getElementById('statPhotos').textContent=photos.length;
+  updateSafetyProgress();
+
+  // Elevation summary
+  const elevs={};
+  deficiencies.forEach(d=>{
+    if(!elevs[d.elevation])elevs[d.elevation]={count:0,cost:0,critical:0};
+    elevs[d.elevation].count++;
+    elevs[d.elevation].cost+=d.totalCost;
+    if(d.severity>=4)elevs[d.elevation].critical++;
+  });
+  const elevEl=document.getElementById('elevSummary');
+  if(Object.keys(elevs).length){
+    elevEl.innerHTML=Object.entries(elevs).map(([e,v])=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:.88rem">
+        <span><strong>${e}</strong> Elevation</span>
+        <span>${v.count} items${v.critical?` (${v.critical} critical)`:''} \u2014 $${v.cost.toLocaleString()}</span>
+      </div>`).join('');
+  } else {
+    elevEl.innerHTML='<p style="color:#bbb;font-size:.85rem">No deficiencies logged.</p>';
+  }
+
+  // Cost summary
+  const costEl=document.getElementById('costSummary');
+  const totalCost=deficiencies.reduce((s,d)=>s+d.totalCost,0);
+  const immediateCost=deficiencies.filter(d=>d.severity>=4).reduce((s,d)=>s+d.totalCost,0);
+  const nearTermCost=deficiencies.filter(d=>d.severity===3).reduce((s,d)=>s+d.totalCost,0);
+  const routineCost=deficiencies.filter(d=>d.severity<=2).reduce((s,d)=>s+d.totalCost,0);
+  const contingency=Math.round(totalCost*.15);
+  costEl.innerHTML=`
+    <div style="font-size:.88rem">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span>\u{1F534} Immediate (Severity 4-5)</span><strong>$${immediateCost.toLocaleString()}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span>\u{1F7E1} Near-Term (Severity 3)</span><strong>$${nearTermCost.toLocaleString()}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span>\u{1F7E2} Routine (Severity 1-2)</span><strong>$${routineCost.toLocaleString()}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span>\u{1F4CE} Contingency (15%)</span><strong>$${contingency.toLocaleString()}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:1.05rem"><strong>TOTAL ESTIMATED REPAIR COST</strong><strong style="color:var(--primary)">$${(totalCost+contingency).toLocaleString()}</strong></div>
+    </div>`;
+}
+
+// ============ EXPORT ============
+function exportExcel(){
+  const wb=XLSX.utils.book_new();
+
+  // Project Info Sheet
+  const projData=[
+    ['SWING STAGE FIELD INSPECTION REPORT'],[''],
+    ['Project Name',gv('projName')],['Project Number',gv('projNum')],['Building Address',`${gv('bldgAddr')}, ${gv('bldgCity')}, ${gv('bldgState')} ${gv('bldgZip')}`],
+    ['Building Type',gv('bldgType')],['Construction Type',gv('constType')],['Stories',gv('stories')],['Year Built',gv('yearBuilt')],['Total Units',gv('totalUnits')],
+    ['Gross Area (SF)',gv('grossArea')],['Facade Area (SF)',gv('facadeArea')],[''],
+    ['Inspection Date',gv('inspDate')],['Inspection Type',gv('inspType')],['Weather',gv('weather')],['Temperature',gv('temp')+'\u00b0F'],[''],
+    ['Inspector',gv('inspName')],['License #',gv('inspLicense')],['Title',gv('inspTitle')],['Company',gv('inspCompany')],['Signature',gv('inspSig')]
+  ];
+  const ws1=XLSX.utils.aoa_to_sheet(projData);
+  XLSX.utils.book_append_sheet(wb,ws1,'Project Info');
+
+  // Safety Checklist Sheet
+  const safetyData=[['Category','Item','Pass/Fail']];
+  SAFETY_ITEMS.forEach(cat=>{
+    cat.items.forEach((item,ii)=>{
+      safetyData.push([cat.cat,item,'']);
+    });
+  });
+  let safetyIdx=0;
+  document.querySelectorAll('#safetyChecklist input[type=checkbox]').forEach(cb=>{
+    safetyData[safetyIdx+1][2]=cb.checked?'PASS':'FAIL';
+    safetyIdx++;
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(safetyData);
+  XLSX.utils.book_append_sheet(wb,ws2,'Safety Checklist');
+
+  // Load Calculations Sheet
+  const loadData=[
+    ['LOAD CALCULATIONS'],[''],
+    ['Platform Weight (lbs)',gv('loadPlatform')],['Number of Workers',gv('loadWorkers')],['Avg Worker Weight (lbs)',gv('loadWorkerWt')],['Tools & Materials (lbs)',gv('loadTools')],[''],
+    ['Total Suspended Load',gv('loadTotal')],['Required Rope Rating (6\u00d7)',gv('loadRope')],['Required Counterweight (4\u00d7)',gv('loadCounter4')],['Recommended Counterweight (7\u00d7)',gv('loadCounter7')]
+  ];
+  const ws3=XLSX.utils.aoa_to_sheet(loadData);
+  XLSX.utils.book_append_sheet(wb,ws3,'Load Calculations');
+
+  // Deficiency Log Sheet
+  const defData=[['ID','Elevation','Bay','Floor','Height(ft)','Component','Severity','Quantity','Unit','Unit Cost($)','Total Cost($)','Description','Recommended Action','Timestamp']];
+  deficiencies.forEach(d=>{
+    defData.push([d.id,d.elevation,d.bay,d.floor,d.height,d.component,d.severity,d.qty,d.unit,d.unitCost,d.totalCost,d.desc,d.action,d.timestamp]);
+  });
+  const ws4=XLSX.utils.aoa_to_sheet(defData);
+  XLSX.utils.book_append_sheet(wb,ws4,'Deficiency Log');
+
+  // Photo Log Sheet
+  const photoData=[['Photo ID','Elevation','Type','Notes','Linked Deficiency','Filename','Timestamp']];
+  photos.forEach(p=>{
+    photoData.push([p.id,p.elevation,p.type,p.notes,p.defLink,p.filename,p.timestamp]);
+  });
+  const ws5=XLSX.utils.aoa_to_sheet(photoData);
+  XLSX.utils.book_append_sheet(wb,ws5,'Photo Log');
+
+  // Cost Summary Sheet
+  const totalCost=deficiencies.reduce((s,d)=>s+d.totalCost,0);
+  const costData=[
+    ['COST ESTIMATE SUMMARY'],[''],
+    ['Priority','Count','Estimated Cost'],
+    ['Immediate (Severity 4-5)',deficiencies.filter(d=>d.severity>=4).length,deficiencies.filter(d=>d.severity>=4).reduce((s,d)=>s+d.totalCost,0)],
+    ['Near-Term (Severity 3)',deficiencies.filter(d=>d.severity===3).length,deficiencies.filter(d=>d.severity===3).reduce((s,d)=>s+d.totalCost,0)],
+    ['Routine (Severity 1-2)',deficiencies.filter(d=>d.severity<=2).length,deficiencies.filter(d=>d.severity<=2).reduce((s,d)=>s+d.totalCost,0)],
+    [''],['Subtotal','',totalCost],['Contingency (15%)','',Math.round(totalCost*.15)],['TOTAL ESTIMATED COST','',totalCost+Math.round(totalCost*.15)],
+    [''],['Notes',gv('inspNotes')]
+  ];
+  const ws6=XLSX.utils.aoa_to_sheet(costData);
+  XLSX.utils.book_append_sheet(wb,ws6,'Cost Summary');
+
+  const filename=`Inspection_${gv('projNum')||'Report'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb,filename);
+  showToast('Excel report exported: '+filename);
+}
+
+function exportJSON(){
+  const data={
+    version:'1.0',
+    exportDate:new Date().toISOString(),
+    project:{name:gv('projName'),number:gv('projNum'),address:gv('bldgAddr'),city:gv('bldgCity'),state:gv('bldgState'),zip:gv('bldgZip'),type:gv('bldgType'),constType:gv('constType'),stories:gv('stories'),yearBuilt:gv('yearBuilt'),units:gv('totalUnits'),grossArea:gv('grossArea'),facadeArea:gv('facadeArea')},
+    inspection:{date:gv('inspDate'),type:gv('inspType'),weather:gv('weather'),temp:gv('temp'),inspector:{name:gv('inspName'),license:gv('inspLicense'),title:gv('inspTitle'),company:gv('inspCompany'),signature:gv('inspSig')}},
+    deficiencies:deficiencies,
+    photos:photos.map(p=>({...p,data:'[IMAGE_DATA_OMITTED]'})),
+    notes:gv('inspNotes')
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`Inspection_${gv('projNum')||'Project'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('Project saved as JSON');
+}
+
+function loadJSON(){document.getElementById('jsonLoader').click()}
+function handleLoadJSON(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.project){
+        sv('projName',data.project.name);sv('projNum',data.project.number);sv('bldgAddr',data.project.address);
+        sv('bldgCity',data.project.city);sv('bldgState',data.project.state);sv('bldgZip',data.project.zip);
+        sv('bldgType',data.project.type);sv('constType',data.project.constType);sv('stories',data.project.stories);
+        sv('yearBuilt',data.project.yearBuilt);sv('totalUnits',data.project.units);sv('grossArea',data.project.grossArea);sv('facadeArea',data.project.facadeArea);
+      }
+      if(data.inspection){
+        sv('inspDate',data.inspection.date);sv('inspType',data.inspection.type);sv('weather',data.inspection.weather);sv('temp',data.inspection.temp);
+        if(data.inspection.inspector){sv('inspName',data.inspection.inspector.name);sv('inspLicense',data.inspection.inspector.license);sv('inspTitle',data.inspection.inspector.title);sv('inspCompany',data.inspection.inspector.company);sv('inspSig',data.inspection.inspector.signature)}
+      }
+      if(data.deficiencies){deficiencies=data.deficiencies;defIdCounter=deficiencies.length+1;renderDeficiencies()}
+      if(data.notes)sv('inspNotes',data.notes);
+      showToast('Project loaded successfully');
+    }catch(err){showToast('Error loading file: '+err.message)}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ============ HELPERS ============
+function gv(id){return document.getElementById(id)?.value||''}
+function sv(id,val){const el=document.getElementById(id);if(el)el.value=val||''}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),3000)}
+
+// ============ INIT ============
+buildSafetyChecklist();
+calcLoad();
+document.getElementById('inspDate').value=new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
